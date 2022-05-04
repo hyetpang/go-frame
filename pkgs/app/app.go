@@ -1,3 +1,8 @@
+/*
+ * @Date: 2022-04-30 10:34:56
+ * @LastEditTime: 2022-04-30 16:50:20
+ * @FilePath: \ultrasdk.hub.gof:\projects\ultrasdk.hub\go-frame\pkgs\app\app.go
+ */
 package app
 
 import (
@@ -5,12 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/HyetPang/go-frame/internal/adapter/log"
+	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/logadapter"
-	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/options"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -32,16 +38,18 @@ func new(opt ...options.Option) *App {
 	for _, op := range opt {
 		op(ops)
 	}
+	// 使用zap日志
+	ops.FxOptions = append(ops.FxOptions, fx.Provide(func()*zap.Logger{
+		return logs.New(ops.LogFile, ops.LogLevel)
+	}))
 	// 设置配置文件
 	viper.SetConfigFile(ops.ConfigFile)
 	common.Panic(viper.ReadInConfig())
-	// 日志
-	logs.Init(ops.LogFile, ops.LogLevel)
-	// 使用zap日志
-	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(logadapter.NewFxZap))
+	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(log.NewFxZap))
 	return &App{app: fx.New(ops.FxOptions...)}
 }
 
+// 获取默认的日志文件位置
 func getDefaultLogFile() string {
 	currentPath, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	common.Panic(err)

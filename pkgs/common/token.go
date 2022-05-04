@@ -1,3 +1,8 @@
+/*
+ * @Date: 2022-04-24 14:21:35
+ * @LastEditTime: 2022-04-29 15:35:03
+ * @FilePath: /github.com/HyetPang/go-frame/pkgs/common/token.go
+ */
 package common
 
 import (
@@ -10,11 +15,9 @@ import (
 )
 
 const (
-	TOKEN_SKEY        = "hero_ultra_sdk_center_go_token"
+	TOKEN_SK          = "hero_ultra_sdk_center_go_token"
 	TOKEN_EXPIRE_TIME = 86400 * 7 // 7天内有效
-	// PASSWORD_PREFIX   = "xydYDJH83DJHRDF6A=k"
-	// SIGN_KEY = "ultrasdk.go_token_sign_key"
-	SIGN_KEY = "21232f297a57a5a743894a0e4a801fc3"
+	SIGN_KEY          = "21232f297a57a5a743894a0e4a801fc3"
 )
 
 type TokenClaims struct {
@@ -28,7 +31,7 @@ func GetToken(userId int, signKey string) (string, error) {
 		signKey = SIGN_KEY
 	}
 	mySigningKey := []byte(signKey)
-	sign := Md5(strconv.Itoa(userId) + TOKEN_SKEY)
+	sign := Md5(strconv.Itoa(userId) + TOKEN_SK)
 	expired := int64(time.Now().Unix() + TOKEN_EXPIRE_TIME)
 	acc_token := ""
 	tokenClaims := TokenClaims{
@@ -54,7 +57,7 @@ func ParseToken(tokenString, signKey string) (*TokenClaims, error) {
 		signKey = SIGN_KEY
 	}
 	jwtKey := String2Byte(signKey)
-	tokenClaims, err := jwt.ParseWithClaims(tokenString, new(TokenClaims), func(token *jwt.Token) (interface{}, error) {
+	tokenClaims, err := jwt.ParseWithClaims(tokenString, new(TokenClaims), func(token *jwt.Token) (any, error) {
 		return jwtKey, nil
 	})
 	if err != nil {

@@ -1,3 +1,8 @@
+/*
+ * @Date: 2022-04-30 10:35:09
+ * @LastEditTime: 2022-04-30 16:56:25
+ * @FilePath: \ultrasdk.hub.gof:\projects\ultrasdk.hub\go-frame\internal\components\redis\redis.go
+ */
 package redis
 
 import (
@@ -11,16 +16,19 @@ import (
 )
 
 func New() redis.UniversalClient {
+	addr := viper.GetString("redis.addr")
+	pwd := viper.GetString("redis.pwd")
+	db := viper.GetInt("redis.db")
 	redisOptions := &redis.Options{
-		Addr:     viper.GetString("redis.addr"),
-		Password: viper.GetString("redis.pwd"),
-		DB:       viper.GetInt("redis.db"),
+		Addr:     addr,
+		Password: pwd,
+		DB:       db,
 	}
 	redisClient := redis.NewClient(redisOptions)
 	ctx, cancel := context.WithTimeout(context.Background(), constants.CtxTimeOut)
 	defer cancel()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		logs.Fatal("连接redis出错", zap.Error(err), zap.Any("redisOptions", redisOptions))
+		logs.Fatal("连接redis出错", zap.Error(err), zap.String("addr", addr), zap.String("pwd", pwd), zap.Int("db", db))
 	}
 	return redisClient
 }

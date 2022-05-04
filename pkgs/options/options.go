@@ -1,3 +1,8 @@
+/*
+ * @Date: 2022-04-24 09:56:04
+ * @LastEditTime: 2022-04-29 18:32:17
+ * @FilePath: /github.com/HyetPang/go-frame/pkgs/options/options.go
+ */
 package options
 
 import (
@@ -32,5 +37,13 @@ func WithInvokes(Invokes ...any) Option {
 func WithFxOption(fxOptions ...fx.Option) Option {
 	return func(o *Options) {
 		o.FxOptions = append(o.FxOptions, fxOptions...)
+	}
+}
+
+func WithFxOptions(fxOptions ...[]fx.Option) Option {
+	return func(o *Options) {
+		for _, op := range fxOptions {
+			o.FxOptions = append(o.FxOptions, op...)
+		}
 	}
 }

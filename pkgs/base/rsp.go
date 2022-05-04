@@ -36,7 +36,7 @@ func toCodeI(err error) (CodeErrI, bool) {
 	if err == nil {
 		return nil, true
 	}
-	var errInterface interface{} = err
+	var errInterface any = err
 	codeE, ok := errInterface.(CodeErrI)
 	return codeE, ok
 }
