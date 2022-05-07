@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:35:09
- * @LastEditTime: 2022-05-07 18:45:25
- * @FilePath: /ultrasdk.hub.go/projects/ultrasdk/go-frame/internal/components/redis/redis.go
+ * @LastEditTime: 2022-05-07 21:15:53
+ * @FilePath: \go-frame\internal\components\redis\redis.go
  */
 package redis
 
@@ -10,6 +10,7 @@ import (
 
 	"github.com/HyetPang/go-frame/internal/constants"
 	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -18,9 +19,10 @@ import (
 func New() redis.UniversalClient {
 	conf := new(config)
 	err := viper.UnmarshalKey("redis", conf)
-	if err != nil || len(conf.Addr) < 1 {
+	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
+	validate.MustValidate(conf)
 	return newRedis(conf)
 }
 
