@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:35:09
- * @LastEditTime: 2022-04-30 17:57:51
- * @FilePath: \go-frame\internal\components\mysql\mysql.go
+ * @LastEditTime: 2022-05-07 17:20:07
+ * @FilePath: /go-frame/internal/components/mysql/mysql.go
  */
 package mysql
 
@@ -20,43 +20,51 @@ import (
 )
 
 func New(zapLog *zap.Logger) *gorm.DB {
+	conf := new(config)
+	err := viper.UnmarshalKey("mysql", conf)
+	if err != nil {
+		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
+	}
+	return newMysql(conf, zapLog)
+}
+
+func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	gormLog := zapgorm2.New(zapLog)
 	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
-	connectString := viper.GetString("mysql.connect_string")
 	nameStrategy := schema.NamingStrategy{}
 	nameStrategy.TablePrefix = viper.GetString("mysql.table_prefix")
 	if len(nameStrategy.TablePrefix) > 0 && !strings.HasSuffix(nameStrategy.TablePrefix, "_") {
 		nameStrategy.TablePrefix = nameStrategy.TablePrefix + "_"
 	}
-	db, err := gorm.Open(mysql.Open(connectString), &gorm.Config{
+	db, err := gorm.Open(mysql.Open(conf.ConnectString), &gorm.Config{
 		NamingStrategy: nameStrategy,
 		Logger:         gormLog.LogMode(logger.Info),
 	})
 	if err != nil {
-		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("connectString", connectString))
+		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("connectString", connectString))
+		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
 	}
-	maxIdleTime := viper.GetInt("mysql.max_idle_time")
+	maxIdleTime := conf.MaxIdleTime
 	if maxIdleTime == 0 {
 		maxIdleTime = 30
 	}
 	sqlDB.SetConnMaxIdleTime(time.Duration(maxIdleTime) * time.Minute)
 
-	maxLifeTime := viper.GetInt("mysql.max_life_time")
+	maxLifeTime := conf.MaxLifeTime
 	if maxLifeTime == 0 {
 		maxLifeTime = 60
 	}
 	sqlDB.SetConnMaxLifetime(time.Minute * time.Duration(maxLifeTime))
 
-	maxIdleConns := viper.GetInt("mysql.max_idle_conns")
+	maxIdleConns := conf.MaxIdleConns
 	if maxIdleConns == 0 {
 		maxIdleConns = 10
 	}
 	sqlDB.SetMaxIdleConns(maxIdleConns)
-	maxOpenConns := viper.GetInt("mysql.max_open_conns")
+	maxOpenConns := conf.MaxOpenConns
 	if maxOpenConns == 0 {
 		maxOpenConns = 100
 	}

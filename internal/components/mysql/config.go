@@ -1,0 +1,10 @@
+package mysql
+
+type config struct {
+	ConnectString string `toml:"connect_string"` // mysql连接字符串
+	MaxIdleTime   int    `toml:"max_idle_time"`
+	MaxLifeTime   int    `toml:"max_life_time"`
+	MaxIdleConns  int    `toml:"max_idle_conns"`
+	MaxOpenConns  int    `toml:"max_open_conns"`
+	TablePrefix   string `toml:"table_prefix"`
+}

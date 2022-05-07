@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 16:15:16
- * @LastEditTime: 2022-05-01 22:55:12
- * @FilePath: \go-frame\internal\components\gin\gin.go
+ * @LastEditTime: 2022-05-07 17:07:46
+ * @FilePath: /go-frame/internal/components/gin/gin.go
  */
 package gin
 
@@ -14,6 +14,7 @@ import (
 	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/pkgs/base"
 	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/HyetPang/go-frame/pkgs/dev"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/wrapper"
 	ginzap "github.com/gin-contrib/zap"
@@ -24,7 +25,7 @@ import (
 )
 
 func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
-	if viper.GetString("server.run_mode") != common.DevMode {
+	if dev.IsDebug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.New()

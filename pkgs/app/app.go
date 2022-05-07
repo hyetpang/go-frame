@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-04-30 16:50:20
- * @FilePath: \ultrasdk.hub.gof:\projects\ultrasdk.hub\go-frame\pkgs\app\app.go
+ * @LastEditTime: 2022-05-07 17:07:30
+ * @FilePath: /go-frame/pkgs/app/app.go
  */
 package app
 
@@ -13,6 +13,7 @@ import (
 	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/HyetPang/go-frame/pkgs/dev"
 	"github.com/HyetPang/go-frame/pkgs/options"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -39,13 +40,16 @@ func new(opt ...options.Option) *App {
 		op(ops)
 	}
 	// 使用zap日志
-	ops.FxOptions = append(ops.FxOptions, fx.Provide(func()*zap.Logger{
+	ops.FxOptions = append(ops.FxOptions, fx.Provide(func() *zap.Logger {
 		return logs.New(ops.LogFile, ops.LogLevel)
 	}))
 	// 设置配置文件
 	viper.SetConfigFile(ops.ConfigFile)
 	common.Panic(viper.ReadInConfig())
 	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(log.NewFxZap))
+	if viper.GetString("server.run_mode") == common.DevMode {
+		dev.IsDebug = true
+	}
 	return &App{app: fx.New(ops.FxOptions...)}
 }
 
