@@ -3,6 +3,7 @@ package base
 type CodeErrI interface {
 	GetMsg() string
 	GetCode() uint
+	IsSuccess() bool
 	error
 }
 
@@ -22,6 +23,10 @@ func (ce *codeErrImpl) GetCode() uint {
 
 func (ce *codeErrImpl) GetMsg() string {
 	return ce.Msg
+}
+
+func (ce *codeErrImpl) IsSuccess() bool {
+	return ce.Code == 0
 }
 
 func (ce *codeErrImpl) Error() string {
