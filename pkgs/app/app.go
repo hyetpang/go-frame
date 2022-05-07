@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-05-07 17:07:30
- * @FilePath: /go-frame/pkgs/app/app.go
+ * @LastEditTime: 2022-05-07 18:56:31
+ * @FilePath: /ultrasdk.hub.go/projects/ultrasdk/go-frame/pkgs/app/app.go
  */
 package app
 
@@ -45,6 +45,7 @@ func new(opt ...options.Option) *App {
 	}))
 	// 设置配置文件
 	viper.SetConfigFile(ops.ConfigFile)
+	viper.SetConfigType("toml")
 	common.Panic(viper.ReadInConfig())
 	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(log.NewFxZap))
 	if viper.GetString("server.run_mode") == common.DevMode {

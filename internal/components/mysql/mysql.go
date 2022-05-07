@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:35:09
- * @LastEditTime: 2022-05-07 17:20:07
- * @FilePath: /go-frame/internal/components/mysql/mysql.go
+ * @LastEditTime: 2022-05-07 18:56:03
+ * @FilePath: /ultrasdk.hub.go/projects/ultrasdk/go-frame/internal/components/mysql/mysql.go
  */
 package mysql
 
@@ -21,9 +21,11 @@ import (
 
 func New(zapLog *zap.Logger) *gorm.DB {
 	conf := new(config)
+	mysqlConf := viper.GetViper().Get("mysql")
+	logs.Debug("mysql", zap.Any("mysql", mysqlConf))
 	err := viper.UnmarshalKey("mysql", conf)
-	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
+	if err != nil || len(conf.ConnectString) < 1 {
+		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
 	return newMysql(conf, zapLog)
 }
