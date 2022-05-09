@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-05-07 18:56:31
- * @FilePath: /ultrasdk.hub.go/projects/ultrasdk/go-frame/pkgs/app/app.go
+ * @LastEditTime: 2022-05-09 10:08:41
+ * @FilePath: /go-frame/pkgs/app/app.go
  */
 package app
 
@@ -50,6 +50,9 @@ func new(opt ...options.Option) *App {
 	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(log.NewFxZap))
 	if viper.GetString("server.run_mode") == common.DevMode {
 		dev.IsDebug = true
+	}
+	if viper.GetBool("server.doc") {
+		dev.IsDoc = true
 	}
 	return &App{app: fx.New(ops.FxOptions...)}
 }
