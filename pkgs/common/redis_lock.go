@@ -45,14 +45,13 @@ func MustRedisLock(redisClient redis.UniversalClient, key string) (string, error
 		return "", err
 	}
 	if redisClient.SetNX(ctx, key, nanoID, redisLockTimeout).Val() {
-		// 一直尝试获取锁
 		return nanoID, nil
 	}
 	return "", errors.New("不能获取锁:" + key)
 }
 
 // 解锁
-func Unlock(redisClient redis.UniversalClient, key, value string) error {
+func RedisUnlock(redisClient redis.UniversalClient, key, value string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), RedisTimeout)
 	defer cancel()
 	result := redisClient.Get(ctx, key)
