@@ -40,3 +40,13 @@ func (gcw *ginContextWrapper) AbortFail(err base.CodeErrI, data ...any) {
 		"code": err.GetCode(),
 	})
 }
+
+func (gcw *ginContextWrapper) OldPaginationRsp(totalCount int64, data any) {
+	gcw.ctx.JSON(http.StatusOK, gin.H{
+		"msg":       "success",
+		"code":      0,
+		"pageTotal": totalCount,
+		"data":      data,
+		"version":   "v1.0.0",
+	})
+}
