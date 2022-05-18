@@ -1,7 +1,20 @@
+/*
+ * @Date: 2022-05-05 15:26:12
+ * @LastEditTime: 2022-05-17 11:12:02
+ * @FilePath: /ultrasdk.center.go/projects/ultrasdk/go-frame/pkgs/base/rsp.go
+ * @Author: guangming.zhang hyetpang@yeah.net
+ * @LastEditors: guangming.zhang hyetpang@yeah.net
+ * @Description:
+ *
+ * Copyright (c) 2022 by hero, All Rights Reserved.
+ */
 package base
+
+import "fmt"
 
 type CodeErrI interface {
 	GetMsg() string
+	FormatMsg(...any) CodeErrI
 	GetCode() uint
 	IsSuccess() bool
 	error
@@ -35,6 +48,11 @@ func (ce *codeErrImpl) Error() string {
 		return err.Error()
 	}
 	return ""
+}
+
+func (ce *codeErrImpl) FormatMsg(args ...any) CodeErrI {
+	ce.Msg = fmt.Sprintf(ce.Msg, args)
+	return ce
 }
 
 func toCodeI(err error) (CodeErrI, bool) {
