@@ -4,7 +4,7 @@
  * @FilePath: /ultrasdk.center.go/projects/ultrasdk/go-frame/pkgs/base/rsp.go
  * @Author: guangming.zhang hyetpang@yeah.net
  * @LastEditors: guangming.zhang hyetpang@yeah.net
- * @Description:
+ * @Description: 基本数据
  *
  * Copyright (c) 2022 by hero, All Rights Reserved.
  */

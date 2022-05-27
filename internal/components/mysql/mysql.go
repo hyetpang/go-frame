@@ -20,14 +20,40 @@ import (
 	"moul.io/zapgorm2"
 )
 
-func New(zapLog *zap.Logger) *gorm.DB {
-	conf := new(config)
-	err := viper.UnmarshalKey("mysql", conf)
+func New(zapLog *zap.Logger) map[string]*gorm.DB {
+	configs := make([]*config, 0, 3)
+	err := viper.UnmarshalKey("mysql", &configs)
 	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", configs))
 	}
-	validate.MustValidate(conf)
+	if len(configs) < 1 {
+		logs.Fatal("必须配置一个数据库", zap.Error(err), zap.Any("conf", configs))
+	}
+	for _, conf := range configs {
+		validate.MustValidate(conf)
+	}
+	return newMysqls(configs, zapLog)
+}
+
+func NewOne(zapLog *zap.Logger) *gorm.DB {
+	conf := new(config)
+	err := viper.UnmarshalKey("mysql", &conf)
+	if err != nil {
+		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
+	}
 	return newMysql(conf, zapLog)
+}
+
+func newMysqls(configs []*config, zapLog *zap.Logger) map[string]*gorm.DB {
+	dbs := make(map[string]*gorm.DB)
+	for _, conf := range configs {
+		_, ok := dbs[conf.Name]
+		if ok {
+			logs.Fatal("数据库连接名字重复", zap.String("name", conf.Name))
+		}
+		dbs[conf.Name] = newMysql(conf, zapLog)
+	}
+	return dbs
 }
 
 func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
@@ -77,6 +103,5 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 		maxOpenConns = 100
 	}
 	sqlDB.SetMaxOpenConns(maxOpenConns)
-
 	return db
 }

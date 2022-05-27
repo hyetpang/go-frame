@@ -6,8 +6,8 @@ import (
 
 type Model struct {
 	ID        int   `gorm:"type:int(10) AUTO_INCREMENT;primarykey;autoIncrement;autoIncrementIncrement:1"`
-	CreatedAt int64 `gorm:"type:int(10);default:0"`
-	UpdatedAt int64 `gorm:"type:int(10);default:0"`
+	CreatedAt int64 `gorm:"type:int(10);default:0;autoCreateTime"`
+	UpdatedAt int64 `gorm:"type:int(10);default:0;autoUpdateTime"`
 	DeletedAt int64 `gorm:"type:int(10);default:0;index"`
 }
 

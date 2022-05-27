@@ -38,13 +38,18 @@ func TryRedisLock(redisClient redis.UniversalClient, key string) (string, error)
 
 // 获取分布式锁，没获取到直接返回不等待
 func MustRedisLock(redisClient redis.UniversalClient, key string) (string, error) {
+	return MustRedisLockWithTimeout(redisClient, key, redisLockTimeout)
+}
+
+// 获取分布式锁，没获取到直接返回不等待
+func MustRedisLockWithTimeout(redisClient redis.UniversalClient, key string, timeout time.Duration) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), RedisTimeout)
 	defer cancel()
 	nanoID, err := GenNanoID()
 	if err != nil {
 		return "", err
 	}
-	if redisClient.SetNX(ctx, key, nanoID, redisLockTimeout).Val() {
+	if redisClient.SetNX(ctx, key, nanoID, timeout).Val() {
 		return nanoID, nil
 	}
 	return "", errors.New("不能获取锁:" + key)

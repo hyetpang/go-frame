@@ -40,6 +40,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 
 	lis, err := net.Listen("tcp4", viper.GetString("server.addr"))
 	if err != nil {
+		logs.Error("http服务地址监听出错", zap.Error(err))
 		common.Panic(err)
 	}
 
