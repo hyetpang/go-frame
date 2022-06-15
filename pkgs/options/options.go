@@ -18,6 +18,7 @@ type Options struct {
 }
 type Option func(*Options)
 
+// 注册需要be注入的对象
 func WithProviders(providers ...any) Option {
 	return func(o *Options) {
 		for _, provider := range providers {
@@ -26,6 +27,7 @@ func WithProviders(providers ...any) Option {
 	}
 }
 
+// 注册需要被调用的函数
 func WithInvokes(Invokes ...any) Option {
 	return func(o *Options) {
 		for _, Invoke := range Invokes {
@@ -34,12 +36,14 @@ func WithInvokes(Invokes ...any) Option {
 	}
 }
 
+// 一次注册单个fx.Option
 func WithFxOption(fxOptions ...fx.Option) Option {
 	return func(o *Options) {
 		o.FxOptions = append(o.FxOptions, fxOptions...)
 	}
 }
 
+// 一次注册多个fx.Option
 func WithFxOptions(fxOptions ...[]fx.Option) Option {
 	return func(o *Options) {
 		for _, op := range fxOptions {

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/fx"
 )
 
-
+// 使用gin框架
 func WithHttp() Option {
 	return func(o *Options) {
 		o.FxOptions = append(o.FxOptions, fx.Provide(gin.New))

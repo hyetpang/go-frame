@@ -21,9 +21,9 @@ type CodeErrI interface {
 }
 
 type codeErrImpl struct {
-	Code uint
-	Msg  string
-	err  error
+	Code uint   `json:"code"`
+	Msg  string `json:"msg"`
+	err  error  `json:"-"`
 }
 
 func NewCodeErr(code uint, msg string) CodeErrI {

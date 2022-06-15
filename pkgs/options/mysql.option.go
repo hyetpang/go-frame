@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// 使用mysql存储,mysqlNames参数
+// 使用mysql存储,mysqlNames参数,mysqlNames是配置在mysql段的name字段,默认(default)的可以不用传
 func WithMysql(mysqlNames ...string) Option {
 	var isExists bool
 	for _, name := range mysqlNames {
