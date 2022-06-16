@@ -20,29 +20,29 @@ type CodeErrI interface {
 	error
 }
 
-type codeErrImpl struct {
+type CodeErrImpl struct {
 	Code uint   `json:"code"`
 	Msg  string `json:"msg"`
 	err  error  `json:"-"`
 }
 
 func NewCodeErr(code uint, msg string) CodeErrI {
-	return &codeErrImpl{Code: code, Msg: msg}
+	return &CodeErrImpl{Code: code, Msg: msg}
 }
 
-func (ce *codeErrImpl) GetCode() uint {
+func (ce *CodeErrImpl) GetCode() uint {
 	return ce.Code
 }
 
-func (ce *codeErrImpl) GetMsg() string {
+func (ce *CodeErrImpl) GetMsg() string {
 	return ce.Msg
 }
 
-func (ce *codeErrImpl) IsSuccess() bool {
+func (ce *CodeErrImpl) IsSuccess() bool {
 	return ce.Code == 0
 }
 
-func (ce *codeErrImpl) Error() string {
+func (ce *CodeErrImpl) Error() string {
 	err := ce.err
 	if err != nil {
 		return err.Error()
@@ -50,7 +50,7 @@ func (ce *codeErrImpl) Error() string {
 	return ""
 }
 
-func (ce *codeErrImpl) FormatMsg(args ...any) CodeErrI {
+func (ce *CodeErrImpl) FormatMsg(args ...any) CodeErrI {
 	ce.Msg = fmt.Sprintf(ce.Msg, args)
 	return ce
 }
