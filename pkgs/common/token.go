@@ -56,7 +56,7 @@ func ParseToken(tokenString, signKey string) (*TokenClaims, error) {
 	if len(signKey) < 1 {
 		signKey = SIGN_KEY
 	}
-	jwtKey := String2Byte(signKey)
+	jwtKey := StringToBytes(signKey)
 	tokenClaims, err := jwt.ParseWithClaims(tokenString, new(TokenClaims), func(token *jwt.Token) (any, error) {
 		return jwtKey, nil
 	})

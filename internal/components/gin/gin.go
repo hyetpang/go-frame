@@ -64,7 +64,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 				return err
 			case <-time.After(time.Second):
 				for _, r := range router.Routes() {
-					logs.Info("注册的路由", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+					logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
 				}
 				logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
 				return nil

@@ -30,10 +30,18 @@ func Md5(str string) string {
 }
 
 // string转byte
-func String2Byte(s string) []byte {
-	x := (*[2]uintptr)(unsafe.Pointer(&s))
-	h := [3]uintptr{x[0], x[1], x[1]}
-	return *(*[]byte)(unsafe.Pointer(&h))
+func StringToBytes(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(
+		&struct {
+			string
+			Cap int
+		}{s, len(s)},
+	))
+}
+
+// bytes转string
+func BytesString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func Now() int64 {

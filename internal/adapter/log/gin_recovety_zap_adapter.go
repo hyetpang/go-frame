@@ -5,7 +5,10 @@
  */
 package log
 
-import "go.uber.org/zap"
+import (
+	"github.com/HyetPang/go-frame/pkgs/common"
+	"go.uber.org/zap"
+)
 
 type ginRecoveryZapLog struct {
 	*zap.Logger
@@ -16,6 +19,6 @@ func NewGinRecoveryZapLog() *ginRecoveryZapLog {
 }
 
 func (ginRecoveryZapLog *ginRecoveryZapLog) Write(p []byte) (n int, err error) {
-	ginRecoveryZapLog.Logger.Error("panic", zap.String("=====", string(p)))
+	ginRecoveryZapLog.Logger.Sugar().Error(common.BytesString(p))
 	return 0, nil
 }
