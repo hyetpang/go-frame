@@ -2,7 +2,6 @@ package obs
 
 import (
 	"io"
-	"path/filepath"
 
 	"github.com/HyetPang/go-frame/internal/components/obs/hw"
 	"github.com/HyetPang/go-frame/pkgs/interfaces"
@@ -45,7 +44,7 @@ func (hc *hwClient) PutObject(bucketName, objectName string, reader io.Reader) (
 		}
 		return "", err
 	}
-	return "https://" + filepath.Join(bucketName+"."+hc.config.Endpoint, objectName), nil
+	return "https://" + bucketName + "." + hc.config.Endpoint + "/" + objectName, nil
 }
 
 func (hc *hwClient) PutFile(bucketName, objectName, filePath string) (string, error) {
@@ -62,5 +61,5 @@ func (hc *hwClient) PutFile(bucketName, objectName, filePath string) (string, er
 		}
 		return "", err
 	}
-	return "https://" + filepath.Join(bucketName+"."+hc.config.Endpoint, objectName), nil
+	return "https://" + bucketName + "." + hc.config.Endpoint + "/" + objectName, nil
 }
