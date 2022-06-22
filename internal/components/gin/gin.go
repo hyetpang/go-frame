@@ -14,21 +14,28 @@ import (
 	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/pkgs/base"
 	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/dev"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/wrapper"
+	"github.com/gin-contrib/pprof"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
-	if dev.IsDebug {
-		gin.SetMode(gin.ReleaseMode)
+	conf := new(config)
+	err := viper.UnmarshalKey("http", &conf)
+	if err != nil {
+		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
 	}
 	router := gin.New()
+	if conf.IsProd {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	router.Use(ginzap.Ginzap(zapLog, time.RFC3339, true))
 	router.Use(gin.RecoveryWithWriter(log.NewGinRecoveryZapLog()))
 	router.NoRoute(noMethod)
@@ -37,10 +44,17 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	router.GET("/health_check", func(ctx *gin.Context) {
 		wrapper.Wrap(ctx).Success("ok")
 	})
-
-	lis, err := net.Listen("tcp4", viper.GetString("server.addr"))
+	// 文档
+	if conf.IsDoc {
+		router.GET("swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	}
+	if conf.IsPprof {
+		// TODO 加权限
+		pprof.Register(router)
+	}
+	lis, err := net.Listen("tcp4", conf.Addr)
 	if err != nil {
-		logs.Error("http服务地址监听出错", zap.Error(err))
+		logs.Error("http服务地址监听出错", zap.Error(err), zap.String("监听的地址", conf.Addr))
 		common.Panic(err)
 	}
 

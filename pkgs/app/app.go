@@ -6,10 +6,6 @@
 package app
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
@@ -17,8 +13,6 @@ import (
 	"github.com/HyetPang/go-frame/pkgs/options"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type App struct {
@@ -33,16 +27,12 @@ func new(opt ...options.Option) *App {
 	ops := &options.Options{
 		FxOptions:  make([]fx.Option, 0, 10),
 		ConfigFile: "./conf/app.toml",
-		LogFile:    getDefaultLogFile(),
-		LogLevel:   zapcore.DebugLevel,
 	}
 	for _, op := range opt {
 		op(ops)
 	}
 	// 使用zap日志
-	ops.FxOptions = append(ops.FxOptions, fx.Provide(func() *zap.Logger {
-		return logs.New(ops.LogFile, ops.LogLevel)
-	}))
+	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 设置配置文件
 	viper.SetConfigFile(ops.ConfigFile)
 	viper.SetConfigType("toml")
@@ -55,11 +45,4 @@ func new(opt ...options.Option) *App {
 		dev.IsDoc = true
 	}
 	return &App{app: fx.New(ops.FxOptions...)}
-}
-
-// 获取默认的日志文件位置
-func getDefaultLogFile() string {
-	currentPath, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	common.Panic(err)
-	return filepath.Join(currentPath, "log", strings.Replace(filepath.Base(os.Args[0]), filepath.Ext(os.Args[0]), "", 1)+".log")
 }

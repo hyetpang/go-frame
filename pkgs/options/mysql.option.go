@@ -12,7 +12,13 @@ import (
 // 使用mysql存储,mysqlNames参数,mysqlNames是配置在mysql段的name字段,默认(default)的可以不用传
 func WithMysql(mysqlNames ...string) Option {
 	var isExists bool
+	mysqlNameMap := make(map[string]struct{})
 	for _, name := range mysqlNames {
+		_, ok := mysqlNameMap[name]
+		if ok {
+			logs.Fatal("配置的mysql名字重复", zap.Any("mysqlNames", mysqlNameMap))
+		}
+		mysqlNameMap[name] = struct{}{}
 		if name == common.DefaultDb {
 			isExists = true
 		}

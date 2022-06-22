@@ -24,10 +24,11 @@ type CodeErrImpl struct {
 	Code uint   `json:"code"`
 	Msg  string `json:"msg"`
 	err  error  `json:"-"`
+	Data any    `json:"data"`
 }
 
 func NewCodeErr(code uint, msg string) CodeErrI {
-	return &CodeErrImpl{Code: code, Msg: msg}
+	return &CodeErrImpl{Code: code, Msg: msg, Data: struct{}{}}
 }
 
 func (ce *CodeErrImpl) GetCode() uint {

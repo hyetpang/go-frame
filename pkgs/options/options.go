@@ -7,14 +7,11 @@ package options
 
 import (
 	"go.uber.org/fx"
-	"go.uber.org/zap/zapcore"
 )
 
 type Options struct {
 	FxOptions  []fx.Option
 	ConfigFile string
-	LogFile    string
-	LogLevel   zapcore.Level
 }
 type Option func(*Options)
 
