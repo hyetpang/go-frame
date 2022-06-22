@@ -46,7 +46,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	})
 	// 文档
 	if conf.IsDoc {
-		router.GET("swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+		router.GET(conf.DocPrefix+"/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 	if conf.IsPprof {
 		// TODO 加权限

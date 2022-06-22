@@ -1,16 +1,14 @@
 package lognotice
 
 import (
-	"log"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/interfaces"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/guonaihong/gout"
-	"github.com/spf13/viper"
+
 	"go.uber.org/zap"
 )
 
@@ -49,16 +47,5 @@ func (wecomNotice *wecomNotice) Notice(msg string, fields ...zap.Field) {
 	if errcode.(float64) != 0 {
 		logs.ErrorWithoutNotice("error日志通知出错,响应码errcode不是0", zap.Any("response", response))
 		return
-	}
-}
-
-func New() interfaces.LogNoticeInterface {
-	conf := new(config)
-	err := viper.UnmarshalKey("log_notice", &conf)
-	if err != nil {
-		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
-	}
-	return &wecomNotice{
-		conf: conf,
 	}
 }

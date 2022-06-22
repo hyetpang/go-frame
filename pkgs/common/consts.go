@@ -22,7 +22,7 @@ const (
 
 // http调用超时
 const (
-	HttpCallTimeOut = time.Second * 2
+	HttpCallTimeOut = time.Second * 5
 )
 
 const (
