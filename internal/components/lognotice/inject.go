@@ -13,7 +13,7 @@ func New() interfaces.LogNoticeInterface {
 	conf := new(config)
 	err := viper.UnmarshalKey("log_notice", &conf)
 	if err != nil {
-		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
+		log.Fatal("log_notice配置Unmarshal到对象出错", zap.Error(err))
 	}
 	if conf.NoticeType == noticeTypeWecom {
 		return &wecomNotice{
