@@ -18,7 +18,7 @@ func New() interfaces.LogNoticeInterface {
 	if conf.NoticeType == noticeTypeWecom {
 		wecomNotice := &wecomNotice{
 			conf:     conf,
-			noticeCh: make(chan string, 1),
+			noticeCh: make(chan noticeContent, 1),
 		}
 		go wecomNotice.noticeMsg()
 		return wecomNotice

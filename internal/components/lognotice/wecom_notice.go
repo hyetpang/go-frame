@@ -15,7 +15,12 @@ import (
 // 企业微信
 type wecomNotice struct {
 	conf     *config
-	noticeCh chan string
+	noticeCh chan noticeContent
+}
+
+type noticeContent struct {
+	msg, filename string
+	line          int
 }
 
 // 通知
@@ -36,21 +41,23 @@ func (wecomNotice *wecomNotice) noticeMsg() {
 }
 
 func (wecomNotice *wecomNotice) Notice(msg string, fields ...zap.Field) {
-	wecomNotice.noticeCh <- msg
+	_, filename, line, _ := runtime.Caller(3)
+	wecomNotice.noticeCh <- noticeContent{
+		msg:      msg,
+		filename: filename,
+		line:     line,
+	}
 }
 
-func (wecomNotice *wecomNotice) notice(msg string) {
+func (wecomNotice *wecomNotice) notice(msg noticeContent) {
 	params := make(map[string]interface{}, 3)
 	params["msgtype"] = "markdown"
 	var content strings.Builder
 	content.WriteString("服务[<font color=\"warning\">")
 	content.WriteString(wecomNotice.conf.Name)
 	content.WriteString("</font>]出错啦,请排查问题,出错概览如下:\n")
-	content.WriteString(">描述:" + msg)
-	_, filename, line, ok := runtime.Caller(3)
-	if ok {
-		content.WriteString("\n>代码行数:<font color=\"warning\">" + filename + ":" + strconv.Itoa(line) + "</font>")
-	}
+	content.WriteString(">描述:" + msg.msg)
+	content.WriteString("\n>代码行数:<font color=\"warning\">" + msg.filename + ":" + strconv.Itoa(msg.line) + "</font>")
 	content.WriteString("\n详情请查看具体日志文件.")
 	params["markdown"] = map[string]interface{}{
 		"content": content.String(),
