@@ -14,10 +14,32 @@ import (
 
 // 企业微信
 type wecomNotice struct {
-	conf *config
+	conf     *config
+	noticeCh chan string
+}
+
+// 通知
+func (wecomNotice *wecomNotice) noticeMsg() {
+	defer func() {
+		if r := recover(); r != nil {
+			err, ok := r.(error)
+			if ok {
+				logs.ErrorWithoutNotice("错误通知panic", zap.Error(err))
+			} else {
+				logs.ErrorWithoutNotice("错误通知panic", zap.Any("msg", r))
+			}
+		}
+	}()
+	for noticeMsg := range wecomNotice.noticeCh {
+		wecomNotice.notice(noticeMsg)
+	}
 }
 
 func (wecomNotice *wecomNotice) Notice(msg string, fields ...zap.Field) {
+	wecomNotice.noticeCh <- msg
+}
+
+func (wecomNotice *wecomNotice) notice(msg string) {
 	params := make(map[string]interface{}, 3)
 	params["msgtype"] = "markdown"
 	var content strings.Builder

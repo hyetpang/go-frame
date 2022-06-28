@@ -16,9 +16,12 @@ func New() interfaces.LogNoticeInterface {
 		log.Fatal("log_notice配置Unmarshal到对象出错", zap.Error(err))
 	}
 	if conf.NoticeType == noticeTypeWecom {
-		return &wecomNotice{
-			conf: conf,
+		wecomNotice := &wecomNotice{
+			conf:     conf,
+			noticeCh: make(chan string, 1),
 		}
+		go wecomNotice.noticeMsg()
+		return wecomNotice
 	} else if conf.NoticeType == noticeTypeEmail {
 		return &emailNotice{
 			conf: conf,

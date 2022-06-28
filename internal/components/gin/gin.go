@@ -42,6 +42,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	router.NoMethod(noMethod)
 	// 健康检查
 	router.GET("/health_check", func(ctx *gin.Context) {
+		panic("panic 测试")
 		wrapper.Wrap(ctx).Success("ok")
 	})
 	// 文档
