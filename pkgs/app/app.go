@@ -41,8 +41,5 @@ func new(opt ...options.Option) *App {
 	if viper.GetString("server.run_mode") == common.DevMode {
 		dev.IsDebug = true
 	}
-	if viper.GetBool("server.doc") {
-		dev.IsDoc = true
-	}
 	return &App{app: fx.New(ops.FxOptions...)}
 }
