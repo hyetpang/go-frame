@@ -20,5 +20,6 @@ func NewGinRecoveryZapLog() *ginRecoveryZapLog {
 
 func (ginRecoveryZapLog *ginRecoveryZapLog) Write(p []byte) (n int, err error) {
 	ginRecoveryZapLog.Logger.Sugar().Error(common.BytesString(p))
+	ginRecoveryZapLog.Logger.Error("=====>panic", zap.String("stack", common.BytesString(p)))
 	return 0, nil
 }
