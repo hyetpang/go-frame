@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/pkgs/base"
 	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
@@ -22,6 +21,7 @@ import (
 	"github.com/spf13/viper"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/zsais/go-gin-prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -36,8 +36,13 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	router.Use(ginzap.Ginzap(zapLog, time.RFC3339, true))
-	router.Use(gin.RecoveryWithWriter(log.NewGinRecoveryZapLog()))
+	router.Use(ginzap.Ginzap(zapLog, time.RFC3339, false))
+	router.Use(recoveryWithZap(zapLog, true))
+	if conf.IsMetrics {
+		prometheus := ginprometheus.NewPrometheus("gin")
+		prometheus.MetricsPath = conf.MetricsPath
+		prometheus.Use(router)
+	}
 	router.NoRoute(noMethod)
 	router.NoMethod(noMethod)
 	// 健康检查
