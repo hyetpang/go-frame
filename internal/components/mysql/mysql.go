@@ -41,6 +41,7 @@ func NewOne(zapLog *zap.Logger) *gorm.DB {
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
 	}
+	validate.MustValidate(conf)
 	return newMysql(conf, zapLog)
 }
 

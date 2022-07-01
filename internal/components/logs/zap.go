@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,6 +26,7 @@ func New() *zap.Logger {
 	if err != nil {
 		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
 	}
+	validate.MustValidate(conf)
 	if len(conf.File) < 1 {
 		conf.File = getDefaultLogFile()
 	}

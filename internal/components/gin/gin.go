@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/base"
-	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/HyetPang/go-frame/pkgs/wrapper"
 	"github.com/gin-contrib/pprof"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"github.com/penglongli/gin-metrics/ginmetrics"
 	"github.com/spf13/viper"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/zsais/go-gin-prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -32,6 +32,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	if err != nil {
 		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
 	}
+	validate.MustValidate(conf)
 	router := gin.New()
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -39,9 +40,11 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	router.Use(ginzap.Ginzap(zapLog, time.RFC3339, false))
 	router.Use(recoveryWithZap(zapLog, true))
 	if conf.IsMetrics {
-		prometheus := ginprometheus.NewPrometheus("gin")
-		prometheus.MetricsPath = conf.MetricsPath
-		prometheus.Use(router)
+		m := ginmetrics.GetMonitor()
+		m.SetMetricPath(conf.MetricsPath)
+		m.SetSlowTime(2)
+		m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
+		m.Use(router)
 	}
 	router.NoRoute(noMethod)
 	router.NoMethod(noMethod)
@@ -51,16 +54,19 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	})
 	// 文档
 	if conf.IsDoc {
-		router.GET(conf.DocPrefix+"/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+		router.GET(conf.DocPath, ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 	if conf.IsPprof {
 		// TODO 加权限
-		pprof.Register(router)
+		if len(conf.PprofPrefix) > 0 {
+			pprof.Register(router, conf.PprofPrefix)
+		} else {
+			pprof.Register(router)
+		}
 	}
 	lis, err := net.Listen("tcp4", conf.Addr)
 	if err != nil {
-		logs.Error("http服务地址监听出错", zap.Error(err), zap.String("监听的地址", conf.Addr))
-		common.Panic(err)
+		logs.Fatal("http服务地址监听出错", zap.Error(err), zap.String("监听的地址", conf.Addr))
 	}
 
 	srv := &http.Server{
@@ -82,8 +88,10 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 			case err := <-errC:
 				return err
 			case <-time.After(time.Second):
-				for _, r := range router.Routes() {
-					logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+				if !conf.IsProd {
+					for _, r := range router.Routes() {
+						logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+					}
 				}
 				logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
 				return nil
@@ -101,6 +109,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 }
 
 func noMethod(ctx *gin.Context) {
-	logs.Warn("noMethod:路由不存在", zap.String("url", ctx.Request.Method+":"+ctx.Request.URL.Path))
+	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
+	logs.Error("路由不存在:"+url, zap.String("url", url))
 	wrapper.Wrap(ctx).Fail(base.CodeErrNotFound)
 }

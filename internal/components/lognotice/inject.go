@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/HyetPang/go-frame/pkgs/interfaces"
+	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -15,6 +16,7 @@ func New() interfaces.LogNoticeInterface {
 	if err != nil {
 		log.Fatal("log_notice配置Unmarshal到对象出错", zap.Error(err))
 	}
+	validate.MustValidate(conf)
 	if conf.NoticeType == noticeTypeWecom {
 		wecomNotice := &wecomNotice{
 			conf:     conf,
