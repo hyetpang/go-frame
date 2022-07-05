@@ -35,11 +35,11 @@ func New() *zap.Logger {
 		conf.Level = &level
 	}
 	hook := &lumberjack.Logger{
-		Filename:   conf.File, // 日志文件路径
-		MaxSize:    128,       // 最大日志大小（Mb级别）
-		MaxBackups: 30,        // 最多保留30个备份
-		MaxAge:     7,         // days
-		Compress:   true,      // 是否压缩 disabled by default
+		Filename:   conf.File,     // 日志文件路径
+		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
+		MaxBackups: logMaxBackups, // 最多保留30个备份
+		MaxAge:     logMaxAge,     // days
+		Compress:   true,          // 是否压缩 disabled by default
 		LocalTime:  true,
 	}
 	minLevel := zapcore.Level(*conf.Level)

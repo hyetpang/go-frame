@@ -8,7 +8,6 @@ package mysql
 import (
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/dev"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
@@ -57,6 +56,7 @@ func newMysqls(configs []*config, zapLog *zap.Logger) map[string]*gorm.DB {
 	return dbs
 }
 
+// TODO 增加指标监控 https://github.com/go-gorm/prometheus
 func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	gormLog := zapgorm2.New(zapLog)
 	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
@@ -65,15 +65,17 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	if len(nameStrategy.TablePrefix) > 0 {
 		nameStrategy.TablePrefix = nameStrategy.TablePrefix + "_"
 	}
-	logLevel := logger.Warn
-	if dev.IsDebug {
-		logLevel = logger.Info
-	} else {
-		gormLog.IgnoreRecordNotFoundError = true
-	}
+	// logLevel := logger.Warn
+	// if dev.IsDebug {
+	// 	// 开发环境打印执行的sql
+	// 	logLevel = logger.Info
+	// } else {
+	// 	//
+	// 	gormLog.IgnoreRecordNotFoundError = true
+	// }
 	db, err := gorm.Open(mysql.Open(conf.ConnectString), &gorm.Config{
 		NamingStrategy: nameStrategy,
-		Logger:         gormLog.LogMode(logLevel),
+		Logger:         gormLog.LogMode(logger.Info),
 	})
 	if err != nil {
 		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
@@ -82,27 +84,27 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	if err != nil {
 		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
 	}
-	maxIdleTime := conf.MaxIdleTime
-	if maxIdleTime == 0 {
-		maxIdleTime = 30
+	maxIdleTimeConfig := conf.MaxIdleTime
+	if maxIdleTimeConfig == 0 {
+		maxIdleTimeConfig = maxIdleTime
 	}
-	sqlDB.SetConnMaxIdleTime(time.Duration(maxIdleTime) * time.Minute)
+	sqlDB.SetConnMaxIdleTime(time.Duration(maxIdleTimeConfig) * time.Minute)
 
-	maxLifeTime := conf.MaxLifeTime
-	if maxLifeTime == 0 {
-		maxLifeTime = 60
+	maxLifeTimeConfig := conf.MaxLifeTime
+	if maxLifeTimeConfig == 0 {
+		maxLifeTimeConfig = maxLifeTime
 	}
-	sqlDB.SetConnMaxLifetime(time.Minute * time.Duration(maxLifeTime))
+	sqlDB.SetConnMaxLifetime(time.Minute * time.Duration(maxLifeTimeConfig))
 
-	maxIdleConns := conf.MaxIdleConns
-	if maxIdleConns == 0 {
-		maxIdleConns = 10
+	maxIdleConnsConfig := conf.MaxIdleConns
+	if maxIdleConnsConfig == 0 {
+		maxIdleConnsConfig = maxIdleConns
 	}
-	sqlDB.SetMaxIdleConns(maxIdleConns)
-	maxOpenConns := conf.MaxOpenConns
-	if maxOpenConns == 0 {
-		maxOpenConns = 100
+	sqlDB.SetMaxIdleConns(maxIdleConnsConfig)
+	maxOpenConnsConfig := conf.MaxOpenConns
+	if maxOpenConnsConfig == 0 {
+		maxOpenConnsConfig = maxOpenConns
 	}
-	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxOpenConns(maxOpenConnsConfig)
 	return db
 }
