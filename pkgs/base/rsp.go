@@ -10,7 +10,10 @@
  */
 package base
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 type CodeErrI interface {
 	GetMsg() string
@@ -48,7 +51,7 @@ func (ce *CodeErrImpl) Error() string {
 	if err != nil {
 		return err.Error()
 	}
-	return ""
+	return strconv.Itoa(int(ce.GetCode())) + ":" + ce.GetMsg()
 }
 
 func (ce *CodeErrImpl) FormatMsg(args ...any) CodeErrI {
