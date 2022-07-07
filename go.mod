@@ -3,7 +3,7 @@ module github.com/HyetPang/go-frame
 go 1.18
 
 require (
-	github.com/gin-contrib/pprof v1.3.0
+	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-contrib/zap v0.0.2
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-logr/zapr v1.2.3
@@ -16,15 +16,15 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.12.0
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe
-	github.com/swaggo/gin-swagger v1.5.0
-	github.com/swaggo/swag v1.8.1
+	github.com/swaggo/gin-swagger v1.5.1
+	github.com/swaggo/swag v1.8.3
 	go.uber.org/fx v1.17.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.3
-	gorm.io/gorm v1.23.6
+	gorm.io/gorm v1.23.8
 	moul.io/zapgorm2 v1.1.3
 )
 
