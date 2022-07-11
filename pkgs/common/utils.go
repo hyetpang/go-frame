@@ -14,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
 )
 
@@ -67,4 +68,24 @@ func Rand(num int) string {
 		result += strconv.Itoa(temp)
 	}
 	return result
+}
+
+func StringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
+	var ignoreURLArrayMarshaler zapcore.ArrayMarshalerFunc = func(ae zapcore.ArrayEncoder) error {
+		for _, v := range stringArray {
+			ae.AppendString(v)
+		}
+		return nil
+	}
+	return ignoreURLArrayMarshaler
+}
+
+func IntArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
+	var ignoreURLArrayMarshaler zapcore.ArrayMarshalerFunc = func(ae zapcore.ArrayEncoder) error {
+		for _, v := range intArray {
+			ae.AppendInt(v)
+		}
+		return nil
+	}
+	return ignoreURLArrayMarshaler
 }
