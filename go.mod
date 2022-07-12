@@ -23,7 +23,7 @@ require (
 	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gorm.io/driver/mysql v1.3.3
+	gorm.io/driver/mysql v1.3.5
 	gorm.io/gorm v1.23.8
 	moul.io/zapgorm2 v1.1.3
 )
