@@ -71,21 +71,19 @@ func Rand(num int) string {
 }
 
 func StringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
-	var ignoreURLArrayMarshaler zapcore.ArrayMarshalerFunc = func(ae zapcore.ArrayEncoder) error {
+	return func(ae zapcore.ArrayEncoder) error {
 		for _, v := range stringArray {
 			ae.AppendString(v)
 		}
 		return nil
 	}
-	return ignoreURLArrayMarshaler
 }
 
 func IntArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
-	var ignoreURLArrayMarshaler zapcore.ArrayMarshalerFunc = func(ae zapcore.ArrayEncoder) error {
+	return func(ae zapcore.ArrayEncoder) error {
 		for _, v := range intArray {
 			ae.AppendInt(v)
 		}
 		return nil
 	}
-	return ignoreURLArrayMarshaler
 }
