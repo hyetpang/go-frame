@@ -37,7 +37,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	router.Use(ginzap.Ginzap(zapLog, time.RFC3339, false))
+	router.Use(ginzap.Ginzap(zapLog, time.RFC3339Nano, false))
 	router.Use(recoveryWithZap(zapLog, true))
 	if conf.IsMetrics {
 		m := ginmetrics.GetMonitor()

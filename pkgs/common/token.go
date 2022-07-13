@@ -16,7 +16,7 @@ import (
 
 const (
 	TOKEN_SK          = "hero_ultra_sdk_center_go_token"
-	TOKEN_EXPIRE_TIME = 86400 * 7 // 7天内有效
+	TOKEN_EXPIRE_TIME = time.Hour * 24 * 7
 	SIGN_KEY          = "21232f297a57a5a743894a0e4a801fc3"
 )
 
@@ -32,12 +32,12 @@ func GetToken(userId int, signKey string) (string, error) {
 	}
 	mySigningKey := []byte(signKey)
 	sign := Md5(strconv.Itoa(userId) + TOKEN_SK)
-	expired := int64(time.Now().Unix() + TOKEN_EXPIRE_TIME)
+	expired := int64(time.Now().Add(TOKEN_EXPIRE_TIME).Unix())
 	acc_token := ""
 	tokenClaims := TokenClaims{
 		UserId: userId,
 		StandardClaims: jwt.StandardClaims{
-			NotBefore: int64(time.Now().Unix() - TOKEN_EXPIRE_TIME),
+			NotBefore: int64(time.Now().Add(-TOKEN_EXPIRE_TIME).Unix()),
 			ExpiresAt: expired,
 			Issuer:    strconv.Itoa(userId),
 			Subject:   sign,
