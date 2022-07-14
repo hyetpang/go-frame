@@ -110,6 +110,6 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 
 func noMethod(ctx *gin.Context) {
 	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
-	logs.Error("路由不存在:"+url, zap.String("url", url))
+	logs.Error("路由不存在:"+url, zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	wrapper.Wrap(ctx).Fail(base.CodeErrNotFound)
 }
