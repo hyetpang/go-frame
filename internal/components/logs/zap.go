@@ -30,10 +30,6 @@ func New() *zap.Logger {
 	if len(conf.File) < 1 {
 		conf.File = getDefaultLogFile()
 	}
-	if conf.Level == nil {
-		level := int(zap.DebugLevel)
-		conf.Level = &level
-	}
 	hook := &lumberjack.Logger{
 		Filename:   conf.File,     // 日志文件路径
 		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
@@ -42,7 +38,7 @@ func New() *zap.Logger {
 		Compress:   true,          // 是否压缩 disabled by default
 		LocalTime:  true,
 	}
-	minLevel := zapcore.Level(*conf.Level)
+	minLevel := zapcore.Level(conf.Level)
 	highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		result := lvl >= minLevel && lvl >= zapcore.ErrorLevel
 		return result

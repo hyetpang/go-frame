@@ -11,12 +11,16 @@ import (
 )
 
 func GenZapNanoId() zapcore.Field {
+	return zap.String("nanoId", GenNanoIdString())
+}
+
+func GenNanoIdString() string {
 	nanoId, err := GenNanoID()
 	if err != nil {
 		logs.Error("zap nanoid生成出错", zap.Error(err))
 		nanoId = strconv.Itoa(int(time.Now().Unix() + rand.Int63n(50)))
 	}
-	return zap.String("nanoId", nanoId)
+	return nanoId
 }
 
 func ZapStringArray(key string, data []string) zapcore.Field {
