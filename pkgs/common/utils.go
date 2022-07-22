@@ -14,6 +14,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/HyetPang/go-frame/pkgs/logs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
 )
@@ -83,6 +85,21 @@ func IntArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
 	return func(ae zapcore.ArrayEncoder) error {
 		for _, v := range intArray {
 			ae.AppendInt(v)
+		}
+		return nil
+	}
+}
+
+func ObjectArrayMarshaler(f func(zapcore.ObjectEncoder)) zapcore.ArrayMarshalerFunc {
+	return func(ae zapcore.ArrayEncoder) error {
+		var omf zapcore.ObjectMarshalerFunc = func(oe zapcore.ObjectEncoder) error {
+			f(oe)
+			return nil
+		}
+		err := ae.AppendObject(omf)
+		if err != nil {
+			logs.Error("zap日志序列化对象出错", zap.Error(err))
+			return err
 		}
 		return nil
 	}
