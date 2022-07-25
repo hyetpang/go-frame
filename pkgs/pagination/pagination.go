@@ -6,8 +6,8 @@ type PaginationI interface {
 }
 
 type Pagination struct {
-	Page     int `json:"page" form:"page" binding:"required"` // 页码,最小值1
-	PageSize int `json:"page_size" form:"page_size"`          // 可不传,默认20
+	Page     int `json:"page" form:"page" binding:"min=1"` // 页码,最小值1
+	PageSize int `json:"page_size" form:"page_size"`       // 可不传,默认20
 }
 
 func (op *Pagination) GetPage() int {
