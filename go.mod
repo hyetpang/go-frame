@@ -10,18 +10,18 @@ require (
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/guonaihong/gout v0.2.12
+	github.com/guonaihong/gout v0.3.1
 	github.com/matoous/go-nanoid/v2 v2.0.0
 	github.com/penglongli/gin-metrics v0.1.10
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.12.0
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe
 	github.com/swaggo/gin-swagger v1.5.1
-	github.com/swaggo/swag v1.8.3
+	github.com/swaggo/swag v1.8.4
 	go.uber.org/fx v1.17.1
 	go.uber.org/zap v1.21.0
-	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.5
 	gorm.io/gorm v1.23.8
