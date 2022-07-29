@@ -1,11 +1,11 @@
 package options
 
 import (
+	"log"
+
 	"github.com/HyetPang/go-frame/internal/components/mysql"
 	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +16,7 @@ func WithMysql(mysqlNames ...string) Option {
 	for _, name := range mysqlNames {
 		_, ok := mysqlNameMap[name]
 		if ok {
-			logs.Fatal("配置的mysql名字重复", zap.Any("mysqlNames", mysqlNameMap))
+			log.Fatalf("配置的mysql名字重复:%v", mysqlNames)
 		}
 		mysqlNameMap[name] = struct{}{}
 		if name == common.DefaultDb {
@@ -48,6 +48,6 @@ func WithMysql(mysqlNames ...string) Option {
 func mustValidateDB(dbs map[string]*gorm.DB, name string) {
 	_, ok := dbs[name]
 	if !ok {
-		logs.Fatal("配置的数据库不存在", zap.String("name", name))
+		log.Fatalf("配置的数据库不存在:%s", name)
 	}
 }

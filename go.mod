@@ -24,7 +24,7 @@ require (
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.5
-	gorm.io/gorm v1.23.8
+	gorm.io/gorm v1.23.9-0.20220713102635-3262daf8d468
 	moul.io/zapgorm2 v1.1.3
 )
 
