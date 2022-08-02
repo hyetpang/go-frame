@@ -32,7 +32,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	if err != nil {
 		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.MustValidate(conf)
+	validate.Must(conf)
 	router := gin.New()
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)

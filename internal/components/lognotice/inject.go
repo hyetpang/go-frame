@@ -16,7 +16,7 @@ func New() interfaces.LogNoticeInterface {
 	if err != nil {
 		log.Fatal("log_notice配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.MustValidate(conf)
+	validate.Must(conf)
 	if conf.NoticeType == noticeTypeWecom {
 		wecomNotice := &wecomNotice{
 			conf:     conf,

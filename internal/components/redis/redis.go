@@ -22,7 +22,7 @@ func New() redis.UniversalClient {
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
-	validate.MustValidate(conf)
+	validate.Must(conf)
 	return newRedis(conf)
 }
 

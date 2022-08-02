@@ -26,7 +26,7 @@ func New() *zap.Logger {
 	if err != nil {
 		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.MustValidate(conf)
+	validate.Must(conf)
 	if len(conf.File) < 1 {
 		conf.File = getDefaultLogFile()
 	}

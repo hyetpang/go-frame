@@ -29,7 +29,7 @@ func New(zapLog *zap.Logger) map[string]*gorm.DB {
 		logs.Fatal("必须配置一个数据库", zap.Error(err), zap.Any("conf", configs))
 	}
 	for _, conf := range configs {
-		validate.MustValidate(conf)
+		validate.Must(conf)
 	}
 	return newMysqls(configs, zapLog)
 }
@@ -40,7 +40,7 @@ func NewOne(zapLog *zap.Logger) *gorm.DB {
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.MustValidate(conf)
+	validate.Must(conf)
 	return newMysql(conf, zapLog)
 }
 

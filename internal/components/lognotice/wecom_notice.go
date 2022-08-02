@@ -28,9 +28,9 @@ func (wecomNotice *wecomNotice) noticeMsg() {
 		if r := recover(); r != nil {
 			err, ok := r.(error)
 			if ok {
-				logs.ErrorWithoutNotice("错误通知panic", zap.Error(err))
+				logs.ErrorWithoutNotice("企业微信错误通知panic", zap.Error(err))
 			} else {
-				logs.ErrorWithoutNotice("错误通知panic", zap.Any("msg", r))
+				logs.ErrorWithoutNotice("企业微信错误通知panic", zap.Any("msg", r))
 			}
 		}
 	}()
