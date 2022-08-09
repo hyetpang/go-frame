@@ -58,8 +58,6 @@ func newMysqls(configs []*config, zapLog *zap.Logger) map[string]*gorm.DB {
 
 // TODO 增加指标监控 https://github.com/go-gorm/prometheus
 func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
-	gormLog := zapgorm2.New(zapLog)
-	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
 	nameStrategy := schema.NamingStrategy{}
 	nameStrategy.TablePrefix = conf.TablePrefix
 	if len(nameStrategy.TablePrefix) > 0 {
@@ -73,6 +71,8 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	// 	//
 	// 	gormLog.IgnoreRecordNotFoundError = true
 	// }
+	gormLog := zapgorm2.New(zapLog)
+	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
 	db, err := gorm.Open(mysql.Open(conf.ConnectString), &gorm.Config{
 		NamingStrategy: nameStrategy,
 		Logger:         gormLog.LogMode(logger.Info),

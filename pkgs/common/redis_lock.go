@@ -49,7 +49,11 @@ func MustRedisLockWithTimeout(redisClient redis.UniversalClient, key string, tim
 	if err != nil {
 		return "", err
 	}
-	if redisClient.SetNX(ctx, key, nanoID, timeout).Val() {
+	result := redisClient.SetNX(ctx, key, nanoID, timeout)
+	if err := result.Err(); err != nil {
+		return "", err
+	}
+	if result.Val() {
 		return nanoID, nil
 	}
 	return "", errors.New("不能获取锁:" + key)
