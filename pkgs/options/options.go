@@ -12,6 +12,7 @@ import (
 type Options struct {
 	FxOptions  []fx.Option
 	ConfigFile string
+	IsStart    bool
 }
 type Option func(*Options)
 

@@ -6,7 +6,10 @@
 package app
 
 import (
-	"github.com/HyetPang/go-frame/internal/adapter/log"
+	"context"
+	"log"
+
+	adapterLog "github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/dev"
@@ -16,17 +19,27 @@ import (
 )
 
 type App struct {
-	app *fx.App
+	app     *fx.App
+	isStart bool
 }
 
 func Run(opt ...options.Option) {
-	new(opt...).app.Run()
+	app := new(opt...)
+	if app.isStart {
+		err := app.app.Start(context.Background())
+		if err != nil {
+			log.Fatalf("start 出错:%s", err.Error())
+		}
+	} else {
+		app.app.Run()
+	}
 }
 
 func new(opt ...options.Option) *App {
 	ops := &options.Options{
 		FxOptions:  make([]fx.Option, 0, 10),
 		ConfigFile: "./conf/app.toml",
+		IsStart:    false,
 	}
 	for _, op := range opt {
 		op(ops)
@@ -37,9 +50,12 @@ func new(opt ...options.Option) *App {
 	viper.SetConfigFile(ops.ConfigFile)
 	viper.SetConfigType("toml")
 	common.Panic(viper.ReadInConfig())
-	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(log.NewFxZap))
+	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(adapterLog.NewFxZap))
 	if viper.GetString("server.run_mode") == common.DevMode {
 		dev.IsDebug = true
 	}
-	return &App{app: fx.New(ops.FxOptions...)}
+	return &App{
+		app:     fx.New(ops.FxOptions...),
+		isStart: ops.IsStart,
+	}
 }
