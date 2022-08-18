@@ -12,12 +12,16 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/base"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/HyetPang/go-frame/pkgs/wrapper"
+	"github.com/HyetPang/overseer"
 	"github.com/gin-contrib/pprof"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+
+	// "github.com/HyetPang/overseer"
 	"github.com/penglongli/gin-metrics/ginmetrics"
 	"github.com/spf13/viper"
 	swaggerfiles "github.com/swaggo/files"
@@ -28,11 +32,14 @@ import (
 
 func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 	conf := new(config)
-	err := viper.UnmarshalKey("http", &conf)
+	err := viper.UnmarshalKey("http", conf)
 	if err != nil {
 		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
 	}
 	validate.Must(conf)
+	if len(conf.Addr) < 1 {
+		logs.Fatal("http配置字段addr没有配置值")
+	}
 	router := gin.New()
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -102,6 +109,85 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 			if err != context.Canceled {
 				return err
 			}
+			logs.Info("http服务器已关闭...")
+			return nil
+		},
+	})
+	return router
+}
+
+func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) gin.IRouter {
+	conf := new(config)
+	err := viper.UnmarshalKey("http", conf)
+	if err != nil {
+		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
+	}
+	validate.Must(conf)
+	if len(conf.Addr) < 1 {
+		logs.Fatal("http配置字段addr没有配置值")
+	}
+	router := gin.New()
+	if conf.IsProd {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	router.Use(ginzap.Ginzap(zapLog, time.RFC3339Nano, false))
+	router.Use(recoveryWithZap(zapLog, true))
+	if conf.IsMetrics {
+		m := ginmetrics.GetMonitor()
+		m.SetMetricPath(conf.MetricsPath)
+		m.SetSlowTime(2)
+		m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
+		m.Use(router)
+	}
+	router.NoRoute(noMethod)
+	router.NoMethod(noMethod)
+	// 健康检查
+	router.GET("/health_check", func(ctx *gin.Context) {
+		wrapper.Wrap(ctx).Success("ok")
+	})
+	// 文档
+	if conf.IsDoc {
+		router.GET(conf.DocPath, ginSwagger.WrapHandler(swaggerfiles.Handler))
+	}
+	if conf.IsPprof {
+		// TODO 加权限
+		if len(conf.PprofPrefix) > 0 {
+			pprof.Register(router, conf.PprofPrefix)
+		} else {
+			pprof.Register(router)
+		}
+	}
+	logs.Info("gin_state_append", zap.String("state.ID", state.ID), zap.String("state.Address", state.Address), zap.String("state.BinPath", state.BinPath), zap.Array("state.Addresses", common.StringArrayMarshaler(state.Addresses)), zap.Bool("state.Enabled", state.Enabled), zap.Time("state.StartedAt", state.StartedAt))
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			errC := make(chan error, 1)
+			go func() {
+				if err := router.RunListener(state.Listener); err != nil && err != http.ErrServerClosed {
+					errC <- err
+				}
+			}()
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case err := <-errC:
+				return err
+			case <-time.After(time.Second):
+				// if !conf.IsProd {
+				// 	for _, r := range router.Routes() {
+				// 		logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+				// 	}
+				// }
+				// logs.Info("HTTP服务器启动成功", zap.String("监听地址", state.Listener.Addr().String()))
+				return nil
+			}
+		},
+		OnStop: func(ctx context.Context) error {
+			// err := srv.Shutdown(ctx)
+			// if err != context.Canceled {
+			// 	return err
+			// }
+			logs.Info("http服务器已关闭...")
 			return nil
 		},
 	})
@@ -113,3 +199,5 @@ func noMethod(ctx *gin.Context) {
 	logs.Error("路由不存在:"+url, zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	wrapper.Wrap(ctx).Fail(base.CodeErrNotFound)
 }
+
+

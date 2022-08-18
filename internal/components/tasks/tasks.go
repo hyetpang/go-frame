@@ -34,6 +34,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) *cron.Cron {
 				if err != context.Canceled {
 					return err
 				}
+				logs.Info("定时任务已关闭...")
 				return nil
 			}
 		},

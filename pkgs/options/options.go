@@ -10,9 +10,11 @@ import (
 )
 
 type Options struct {
-	FxOptions  []fx.Option
-	ConfigFile string
-	IsStart    bool
+	FxOptions       []fx.Option
+	ConfigFile      string
+	IsStart         bool
+	UseHttp         bool // hi否使用http
+	UseGraceRestart bool // hi否使用优雅重启
 }
 type Option func(*Options)
 
