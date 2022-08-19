@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/base"
-	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/HyetPang/go-frame/pkgs/wrapper"
@@ -157,7 +156,6 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 			pprof.Register(router)
 		}
 	}
-	logs.Info("gin_state_append", zap.String("state.ID", state.ID), zap.String("state.Address", state.Address), zap.String("state.BinPath", state.BinPath), zap.Array("state.Addresses", common.StringArrayMarshaler(state.Addresses)), zap.Bool("state.Enabled", state.Enabled), zap.Time("state.StartedAt", state.StartedAt))
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			errC := make(chan error, 1)
@@ -199,5 +197,3 @@ func noMethod(ctx *gin.Context) {
 	logs.Error("路由不存在:"+url, zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	wrapper.Wrap(ctx).Fail(base.CodeErrNotFound)
 }
-
-
