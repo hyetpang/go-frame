@@ -30,14 +30,15 @@ func GetToken(userId int, signKey string) (string, error) {
 	if len(signKey) < 1 {
 		signKey = SIGN_KEY
 	}
-	mySigningKey := []byte(signKey)
+	mySigningKey := StringToBytes(signKey)
 	sign := Md5(strconv.Itoa(userId) + TOKEN_SK)
-	expired := int64(time.Now().Add(TOKEN_EXPIRE_TIME).Unix())
+	now := time.Now()
+	expired := int64(now.Add(TOKEN_EXPIRE_TIME).Unix())
 	acc_token := ""
 	tokenClaims := TokenClaims{
 		UserId: userId,
 		StandardClaims: jwt.StandardClaims{
-			NotBefore: int64(time.Now().Add(-TOKEN_EXPIRE_TIME).Unix()),
+			NotBefore: int64(now.Add(-TOKEN_EXPIRE_TIME).Unix()),
 			ExpiresAt: expired,
 			Issuer:    strconv.Itoa(userId),
 			Subject:   sign,
