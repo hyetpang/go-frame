@@ -123,7 +123,7 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 	if conf.IsMetrics {
 		m := ginmetrics.GetMonitor()
 		m.SetMetricPath(conf.MetricsPath)
-		m.SetSlowTime(2)
+		m.SetSlowTime(1) // 超过1秒的响应都是慢请求
 		m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
 		m.Use(router)
 	}
