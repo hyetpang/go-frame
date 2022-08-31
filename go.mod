@@ -1,6 +1,6 @@
 module github.com/HyetPang/go-frame
 
-go 1.18
+go 1.19
 
 require (
 	github.com/HyetPang/overseer v0.0.0-20220818071149-0e95e21cd497
@@ -21,7 +21,7 @@ require (
 	github.com/swaggo/swag v1.8.5
 	go.uber.org/fx v1.18.1
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20220823124025-807a23277127
+	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.3.6

@@ -77,6 +77,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 }
 
 func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) gin.IRouter {
+	logs.Debug("NewWithGraceRestart", zap.String("state.ID", state.ID), zap.String("state.Address", state.Address))
 	router, _ := newGin(zapLog)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

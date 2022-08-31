@@ -7,7 +7,6 @@ package app
 
 import (
 	"github.com/HyetPang/go-frame/pkgs/dev"
-	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/overseer"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -29,6 +28,5 @@ func (app *App) run() {
 	if dev.IsDebug {
 		viper.Debug()
 	}
-	logs.Info("start_running 开始启动程序...")
 	fx.New(app.options...).Run()
 }
