@@ -5,7 +5,7 @@ import (
 )
 
 func GenNanoID() (string, error) {
-	return gonanoid.Generate(alphaLower, 10)
+	return gonanoid.Generate(alphaNumber, 10)
 }
 
 var (
