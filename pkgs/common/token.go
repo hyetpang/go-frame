@@ -62,7 +62,7 @@ func ParseToken(tokenString, signKey string) (*TokenClaims, error) {
 		return jwtKey, nil
 	})
 	if err != nil {
-		logs.Error("token解析失败", zap.Error(err))
+		logs.ErrorWithoutNotice("token解析失败", zap.Error(err))
 		return nil, err
 	}
 	claims := tokenClaims.Claims.(*TokenClaims)

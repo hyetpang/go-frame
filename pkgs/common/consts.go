@@ -8,7 +8,8 @@ package common
 import "time"
 
 const (
-	DevMode = "dev"
+	DevMode  = "dev"
+	TestMode = "test"
 )
 
 const (

@@ -35,9 +35,17 @@ func run(opt ...options.Option) {
 	viper.SetConfigFile(ops.ConfigFile)
 	viper.SetConfigType("toml")
 	common.Panic(viper.ReadInConfig())
+	var isDev bool // 这个参数用来控制在本地开发的时候不用平滑重启，直接启动，避免打断点不生效，无法调试的问题
+	if viper.GetString("server.run_mode") == common.DevMode || viper.GetString("server.run_mode") == common.TestMode {
+		dev.IsDebug = true
+		if viper.GetString("server.run_mode") == common.DevMode {
+			isDev = true
+		}
+	}
+
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
-	if ops.UseGraceRestart {
+	if ops.UseGraceRestart && isDev {
 		graceRestartConfig := newGraceRestartConfig()
 		overseerConfig = &overseer.Config{
 			ExecFile:      graceRestartConfig.ExecFile,
@@ -54,14 +62,11 @@ func run(opt ...options.Option) {
 		ops.FxOptions = append(ops.FxOptions, httpProvider)
 	}
 	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(adapterLog.NewFxZap))
-	if viper.GetString("server.run_mode") == common.DevMode {
-		dev.IsDebug = true
-	}
 	app := &App{
 		options: ops.FxOptions,
 		isStart: ops.IsStart,
 	}
-	if ops.UseGraceRestart {
+	if ops.UseGraceRestart && isDev {
 		(*overseerConfig).Program = app.runWith
 		overseer.Run(*overseerConfig)
 	} else {
