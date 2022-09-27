@@ -45,7 +45,7 @@ func run(opt ...options.Option) {
 
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
-	if ops.UseGraceRestart && isDev {
+	if ops.UseGraceRestart && !isDev {
 		graceRestartConfig := newGraceRestartConfig()
 		overseerConfig = &overseer.Config{
 			ExecFile:      graceRestartConfig.ExecFile,
@@ -66,7 +66,7 @@ func run(opt ...options.Option) {
 		options: ops.FxOptions,
 		isStart: ops.IsStart,
 	}
-	if ops.UseGraceRestart && isDev {
+	if ops.UseGraceRestart && !isDev {
 		(*overseerConfig).Program = app.runWith
 		overseer.Run(*overseerConfig)
 	} else {
