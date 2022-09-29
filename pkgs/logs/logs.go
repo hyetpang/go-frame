@@ -43,11 +43,11 @@ type log struct {
 }
 
 func (l *log) Error(msg string, fields ...zap.Field) {
+	lognotice.Notice(msg, fields...)
 	l.Logger.Error(msg, fields...)
 }
 
 func (l *log) ErrorWithoutNotice(msg string, fields ...zap.Field) {
-	lognotice.Notice(msg, fields...)
 	l.Logger.Error(msg, fields...)
 }
 
