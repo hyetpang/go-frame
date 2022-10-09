@@ -67,6 +67,7 @@ func (l *Log) Info(msg string, fields ...zap.Field) {
 }
 
 func (l *Log) With(fields ...zap.Field) *Log {
-	l.Logger = l.Logger.With(fields...)
-	return l
+	return &Log{
+		Logger: l.Logger.With(fields...),
+	}
 }
