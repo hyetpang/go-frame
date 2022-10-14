@@ -6,7 +6,6 @@
 package app
 
 import (
-	"github.com/HyetPang/go-frame/pkgs/dev"
 	"github.com/HyetPang/overseer"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -25,8 +24,6 @@ func (app *App) runWith(state overseer.State) {
 }
 
 func (app *App) run() {
-	if dev.IsDebug {
-		viper.Debug()
-	}
+	viper.Debug() // 打印配置项
 	fx.New(app.options...).Run()
 }
