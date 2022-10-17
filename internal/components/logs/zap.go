@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/common"
@@ -27,11 +26,16 @@ func New() *zap.Logger {
 		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
 	}
 	validate.Must(conf)
-	if len(conf.File) < 1 {
-		conf.File = getDefaultLogFile()
+	if len(conf.Path) < 1 {
+		currentPath, err := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err != nil {
+			log.Fatalf("获取当前文件路径出错:%s", err.Error())
+		}
+		conf.Path = filepath.Join(currentPath, "log")
 	}
+	debugFile, errFile := getLogFilePath(conf.Path)
 	hook := &lumberjack.Logger{
-		Filename:   conf.File,     // 日志文件路径
+		Filename:   debugFile,     // 日志文件路径
 		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
 		MaxBackups: logMaxBackups, // 最多保留30个备份
 		MaxAge:     logMaxAge,     // days
@@ -48,27 +52,41 @@ func New() *zap.Logger {
 		return result
 	})
 
+	// 错误日志单独写一份文件
+	hook_err := &lumberjack.Logger{
+		Filename:   errFile,       // 日志文件路径
+		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
+		MaxBackups: logMaxBackups, // 最多保留30个备份
+		MaxAge:     logMaxAge,     // days
+		Compress:   true,          // 是否压缩 disabled by default
+		LocalTime:  true,
+	}
+	fileError := zapcore.AddSync(hook_err)
+
 	fileDebugging := zapcore.AddSync(hook)
 	fileErrors := zapcore.AddSync(hook)
 
 	consoleDebugging := zapcore.Lock(os.Stdout)
 	consoleErrors := zapcore.Lock(os.Stderr)
 
-	cfg := zap.NewDevelopmentEncoderConfig()
-	cfg.EncodeTime = customTimeEncoder
+	fileCfg := zap.NewProductionEncoderConfig()
+	fileCfg.EncodeTime = customTimeEncoder
+	fileEncoder := zapcore.NewConsoleEncoder(fileCfg)
 
-	fileEncoder := zapcore.NewConsoleEncoder(cfg)
-	consoleEncoder := zapcore.NewConsoleEncoder(cfg)
+	consoleCfg := zap.NewDevelopmentEncoderConfig()
+	consoleCfg.EncodeTime = customTimeEncoder
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
 	core := zapcore.NewTee(
 		zapcore.NewCore(consoleEncoder, consoleErrors, highPriority),
 		zapcore.NewCore(fileEncoder, fileErrors, highPriority),
+		zapcore.NewCore(fileEncoder, fileError, highPriority),
 		zapcore.NewCore(consoleEncoder, consoleDebugging, lowPriority),
 		zapcore.NewCore(fileEncoder, fileDebugging, lowPriority),
 	)
 
 	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
-
+	
 	// logger和下面return的zap.Logger依赖唯一不同是zap.AddCallerSkip(1)，下面return是作为依赖给各种第三方库使用的
 	zap.ReplaceGlobals(logger.WithOptions(zap.AddCallerSkip(1)))
 	return logger
@@ -79,8 +97,29 @@ func customTimeEncoder(time time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 }
 
 // 获取默认的日志文件位置
-func getDefaultLogFile() string {
-	currentPath, err := filepath.Abs(filepath.Dir(os.Args[0]))
+func getLogFilePath(currentPath string) (string, string) {
+	err := makeDir(currentPath)
 	common.Panic(err)
-	return filepath.Join(currentPath, "log", strings.Replace(filepath.Base(os.Args[0]), filepath.Ext(os.Args[0]), "", 1)+".log")
+
+	debugDir := filepath.Join(currentPath, "debug")
+	err = makeDir(debugDir)
+	common.Panic(err)
+	debugFile := filepath.Join(debugDir, filepath.Base(os.Args[0])+".log")
+
+	errDir := filepath.Join(currentPath, "error")
+	err = makeDir(errDir)
+	common.Panic(err)
+	errFile := filepath.Join(errDir, filepath.Base(os.Args[0])+".log")
+	return debugFile, errFile
+}
+
+// 创建不存在的目录
+func makeDir(path string) error {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.Mkdir(path, 666)
+		}
+	}
+	return nil
 }
