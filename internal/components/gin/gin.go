@@ -115,10 +115,10 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 	if len(conf.Addr) < 1 {
 		logs.Fatal("http配置字段addr没有配置值")
 	}
-	router := gin.New()
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	router := gin.New()
 	router.Use(ginzap.Ginzap(zapLog, time.RFC3339Nano, false))
 	router.Use(recoveryWithZap(zapLog, true))
 	if conf.IsMetrics {
