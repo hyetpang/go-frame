@@ -5,27 +5,27 @@ go 1.19
 require (
 	github.com/HyetPang/overseer v0.0.0-20220818071149-0e95e21cd497
 	github.com/gin-contrib/pprof v1.4.0
-	github.com/gin-contrib/zap v0.0.2
+	github.com/gin-contrib/zap v0.1.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-logr/zapr v1.2.3
-	github.com/go-playground/validator/v10 v10.11.0
+	github.com/go-playground/validator/v10 v10.11.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/guonaihong/gout v0.3.1
 	github.com/matoous/go-nanoid/v2 v2.0.0
 	github.com/penglongli/gin-metrics v0.1.10
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/spf13/viper v1.12.0
+	github.com/spf13/viper v1.13.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
-	github.com/swaggo/gin-swagger v1.5.2
-	github.com/swaggo/swag v1.8.5
-	go.uber.org/fx v1.18.1
+	github.com/swaggo/gin-swagger v1.5.3
+	github.com/swaggo/swag v1.8.7
+	go.uber.org/fx v1.18.2
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
+	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
+	golang.org/x/sync v0.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gorm.io/driver/mysql v1.3.6
-	gorm.io/gorm v1.23.9-0.20220713102635-3262daf8d468
+	gorm.io/driver/mysql v1.4.3
+	gorm.io/gorm v1.24.0
 	moul.io/zapgorm2 v1.1.3
 )
 
@@ -66,7 +66,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/onsi/gomega v1.20.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.4 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -78,6 +78,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
+	go.opentelemetry.io/otel v1.10.0 // indirect
+	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/dig v1.15.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect

@@ -86,7 +86,6 @@ func New() *zap.Logger {
 	)
 
 	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
-	
 	// logger和下面return的zap.Logger依赖唯一不同是zap.AddCallerSkip(1)，下面return是作为依赖给各种第三方库使用的
 	zap.ReplaceGlobals(logger.WithOptions(zap.AddCallerSkip(1)))
 	return logger
