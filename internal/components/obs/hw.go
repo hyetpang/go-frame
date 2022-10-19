@@ -2,6 +2,7 @@ package obs
 
 import (
 	"io"
+	"net/http"
 
 	"github.com/HyetPang/go-frame/internal/components/obs/hw"
 	"github.com/HyetPang/go-frame/pkgs/interfaces"
@@ -62,4 +63,23 @@ func (hc *hwClient) PutFile(bucketName, objectName, filePath string) (string, er
 		return "", err
 	}
 	return "https://" + bucketName + "." + hc.config.Endpoint + "/" + objectName, nil
+}
+
+func (hc *hwClient) PutFileWithSigned(signedUrl string, actualSignedRequestHeaders http.Header, sourceFile string) (output *hw.PutObjectOutput, err error) {
+	return hc.ObsClient.PutFileWithSignedUrl(signedUrl, actualSignedRequestHeaders, sourceFile)
+}
+
+func (hc *hwClient) GetSignedUrl(bucket, objectName string) (string, http.Header, error) {
+	putObjectInput := &hw.CreateSignedUrlInput{}
+	putObjectInput.Method = hw.HttpMethodPut
+	putObjectInput.Bucket = bucket
+	putObjectInput.Key = objectName
+	putObjectInput.Expires = 3600
+	rsp, err := hc.ObsClient.CreateSignedUrl(putObjectInput)
+	if err != nil {
+		logs.Error("获取华为obs签名的url出错", zap.Error(err))
+		return "", nil, err
+	}
+	hc.ObsClient.PutFileWithSignedUrl(rsp.SignedUrl, rsp.ActualSignedRequestHeaders, "")
+	return rsp.SignedUrl, rsp.ActualSignedRequestHeaders, nil
 }
