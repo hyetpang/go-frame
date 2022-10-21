@@ -636,6 +636,7 @@ func (input ObjectOperationInput) trans(isObs bool) (params map[string]string, h
 	}
 	if input.WebsiteRedirectLocation != "" {
 		setHeaders(headers, HEADER_WEBSITE_REDIRECT_LOCATION, []string{input.WebsiteRedirectLocation}, isObs)
+
 	}
 	setSseHeader(headers, input.SseHeader, false, isObs)
 	if input.Expires != 0 {
@@ -858,6 +859,7 @@ func (input CopyPartInput) trans(isObs bool) (params map[string]string, headers 
 			setHeaders(headers, HEADER_SSEC_COPY_SOURCE_KEY, []string{sseCHeader.GetKey()}, isObs)
 			setHeaders(headers, HEADER_SSEC_COPY_SOURCE_KEY_MD5, []string{sseCHeader.GetKeyMD5()}, isObs)
 		}
+
 	}
 	return
 }

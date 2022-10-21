@@ -69,8 +69,11 @@ func (hc *hwClient) PutFileWithSigned(signedUrl string, actualSignedRequestHeade
 	return hc.ObsClient.PutFileWithSignedUrl(signedUrl, actualSignedRequestHeaders, sourceFile)
 }
 
-func (hc *hwClient) GetSignedUrl(bucket, objectName string) (string, http.Header, error) {
-	putObjectInput := &hw.CreateSignedUrlInput{}
+func (hc *hwClient) GetSignedUrl(bucket, objectName string, isPublicRead bool) (string, http.Header, error) {
+	putObjectInput := &hw.CreateSignedUrlInput{Headers: make(map[string]string)}
+	if isPublicRead {
+		putObjectInput.Headers["x-obs-acl"] = "public-read"
+	}
 	putObjectInput.Method = hw.HttpMethodPut
 	putObjectInput.Bucket = bucket
 	putObjectInput.Key = objectName
@@ -80,6 +83,7 @@ func (hc *hwClient) GetSignedUrl(bucket, objectName string) (string, http.Header
 		logs.Error("获取华为obs签名的url出错", zap.Error(err))
 		return "", nil, err
 	}
-	hc.ObsClient.PutFileWithSignedUrl(rsp.SignedUrl, rsp.ActualSignedRequestHeaders, "")
+	// outrsp, err := hc.ObsClient.PutFileWithSignedUrl(rsp.SignedUrl, rsp.ActualSignedRequestHeaders, "./a.gif")
+	logs.Info("aaa", zap.Error(err), zap.Any("headers", putObjectInput.Headers))
 	return rsp.SignedUrl, rsp.ActualSignedRequestHeaders, nil
 }

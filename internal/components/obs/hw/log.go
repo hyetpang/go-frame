@@ -54,7 +54,7 @@ func getDefaultLogConf() logConfType {
 		level:        LEVEL_WARN,
 		logToConsole: false,
 		logFullPath:  "",
-		maxLogSize:   1024 * 1024 * 30, // 30MB
+		maxLogSize:   1024 * 1024 * 30, //30MB
 		backups:      10,
 	}
 }
@@ -108,7 +108,7 @@ func (lw *loggerWrapper) rotate() {
 		}
 		lw.index++
 
-		fd, err := os.OpenFile(lw.fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		fd, err := os.OpenFile(lw.fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			panic(err)
 		}
@@ -152,6 +152,7 @@ func (lw *loggerWrapper) doWrite() {
 		}
 		lw.queue = append(lw.queue, msg)
 	}
+
 }
 
 func (lw *loggerWrapper) Printf(format string, v ...interface{}) {
@@ -161,11 +162,9 @@ func (lw *loggerWrapper) Printf(format string, v ...interface{}) {
 	}
 }
 
-var (
-	consoleLogger *log.Logger
-	fileLogger    *loggerWrapper
-	lock          = new(sync.RWMutex)
-)
+var consoleLogger *log.Logger
+var fileLogger *loggerWrapper
+var lock = new(sync.RWMutex)
 
 func isDebugLogEnabled() bool {
 	return logConf.level <= LEVEL_DEBUG
@@ -267,7 +266,7 @@ func initLogFile(_fullPath string) (os.FileInfo, *os.File, error) {
 		return nil, nil, err
 	}
 
-	fd, err := os.OpenFile(_fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	fd, err := os.OpenFile(_fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -13,7 +13,7 @@
 package hw
 
 const (
-	obsSdkVersion          = "3.21.8"
+	obsSdkVersion          = "3.21.12"
 	USER_AGENT             = "obs-sdk-go/" + obsSdkVersion
 	HEADER_PREFIX          = "x-amz-"
 	HEADER_PREFIX_META     = "x-amz-meta-"
@@ -772,13 +772,13 @@ const (
 type StorageClassType string
 
 const (
-	// StorageClassStandard storage class: STANDARD
+	//StorageClassStandard storage class: STANDARD
 	StorageClassStandard StorageClassType = "STANDARD"
 
-	// StorageClassWarm storage class: WARM
+	//StorageClassWarm storage class: WARM
 	StorageClassWarm StorageClassType = "WARM"
 
-	// StorageClassCold storage class: COLD
+	//StorageClassCold storage class: COLD
 	StorageClassCold StorageClassType = "COLD"
 
 	storageClassStandardIA StorageClassType = "STANDARD_IA"

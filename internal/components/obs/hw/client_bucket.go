@@ -75,7 +75,6 @@ func (obsClient ObsClient) SetBucketStoragePolicy(input *SetBucketStoragePolicyI
 	}
 	return
 }
-
 func (obsClient ObsClient) getBucketStoragePolicyS3(bucketName string, extensions []extensionOptions) (output *GetBucketStoragePolicyOutput, err error) {
 	output = &GetBucketStoragePolicyOutput{}
 	var outputS3 *getBucketStoragePolicyOutputS3
@@ -194,7 +193,6 @@ func (obsClient ObsClient) getBucketLocationS3(bucketName string, extensions []e
 	}
 	return
 }
-
 func (obsClient ObsClient) getBucketLocationObs(bucketName string, extensions []extensionOptions) (output *GetBucketLocationOutput, err error) {
 	output = &GetBucketLocationOutput{}
 	var outputObs *getBucketLocationOutputObs
@@ -233,7 +231,6 @@ func (obsClient ObsClient) SetBucketAcl(input *SetBucketAclInput, extensions ...
 	}
 	return
 }
-
 func (obsClient ObsClient) getBucketACLObs(bucketName string, extensions []extensionOptions) (output *GetBucketAclOutput, err error) {
 	output = &GetBucketAclOutput{}
 	var outputObs *getBucketACLOutputObs

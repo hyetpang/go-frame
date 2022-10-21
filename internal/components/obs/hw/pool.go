@@ -208,6 +208,7 @@ func (pool *basicPool) CompareAndSwapCurrentWorkingCnt(oldValue, newValue int64)
 }
 
 func (pool *basicPool) EnableAutoTune() {
+
 }
 
 // RoutinePool defines the coroutine pool struct

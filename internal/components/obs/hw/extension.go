@@ -18,10 +18,8 @@ import (
 	"strings"
 )
 
-type (
-	extensionOptions interface{}
-	extensionHeaders func(headers map[string][]string, isObs bool) error
-)
+type extensionOptions interface{}
+type extensionHeaders func(headers map[string][]string, isObs bool) error
 
 func setHeaderPrefix(key string, value string) extensionHeaders {
 	return func(headers map[string][]string, isObs bool) error {

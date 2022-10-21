@@ -426,6 +426,7 @@ func (conf *config) prepareEscapeFunc(escape bool) (escapeFunc func(s string) st
 }
 
 func (conf *config) formatUrls(bucketName, objectKey string, params map[string]string, escape bool) (requestURL string, canonicalizedURL string) {
+
 	requestURL, canonicalizedURL = conf.prepareBaseURL(bucketName)
 	var escapeFunc func(s string) string
 	escapeFunc = conf.prepareEscapeFunc(escape)

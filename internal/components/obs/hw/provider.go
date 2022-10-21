@@ -72,7 +72,7 @@ type EnvSecurityProvider struct {
 }
 
 func (esp *EnvSecurityProvider) getSecurity() securityHolder {
-	// ensure run only once
+	//ensure run only once
 	esp.once.Do(func() {
 		esp.sh = securityHolder{
 			ak:            strings.TrimSpace(os.Getenv(accessKeyEnv + esp.suffix)),
@@ -190,9 +190,9 @@ func (ecsSp *EcsSecurityProvider) getAndSetSecurity() securityHolder {
 func (ecsSp *EcsSecurityProvider) getSecurity() securityHolder {
 	if tsh, succeed := ecsSp.loadTemporarySecurityHolder(); succeed {
 		if time.Now().Before(tsh.expireDate) {
-			// not expire
+			//not expire
 			if time.Now().Add(time.Minute*5).After(tsh.expireDate) && atomic.CompareAndSwapInt32(&ecsSp.prefetch, 0, 1) {
-				// do prefetch
+				//do prefetch
 				sh := ecsSp.getAndSetSecurityWithOutLock()
 				atomic.CompareAndSwapInt32(&ecsSp.prefetch, 1, 0)
 				return sh
@@ -206,6 +206,7 @@ func (ecsSp *EcsSecurityProvider) getSecurity() securityHolder {
 }
 
 func getInternalTransport() *http.Transport {
+
 	timeout := 10
 	transport := &http.Transport{
 		Dial: func(network, addr string) (net.Conn, error) {

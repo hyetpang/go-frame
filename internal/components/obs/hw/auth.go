@@ -21,8 +21,7 @@ import (
 )
 
 func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, expires int64,
-) (requestURL string, err error) {
+	headers map[string][]string, expires int64) (requestURL string, err error) {
 	sh := obsClient.getSecurity()
 	isAkSkEmpty := sh.ak == "" || sh.sk == ""
 	if isAkSkEmpty == false && sh.securityToken != "" {
@@ -116,8 +115,7 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 }
 
 func (obsClient ObsClient) doAuth(method, bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, hostName string,
-) (requestURL string, err error) {
+	headers map[string][]string, hostName string) (requestURL string, err error) {
 	sh := obsClient.getSecurity()
 	isAkSkEmpty := sh.ak == "" || sh.sk == ""
 	if isAkSkEmpty == false && sh.securityToken != "" {
@@ -189,6 +187,7 @@ func prepareHostAndDate(headers map[string][]string, hostName string, isV4 bool)
 	if _, ok := headers[HEADER_DATE_CAMEL]; !ok {
 		headers[HEADER_DATE_CAMEL] = []string{FormatUtcToRfc1123(time.Now().UTC())}
 	}
+
 }
 
 func encodeHeaders(headers map[string][]string) {

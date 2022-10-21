@@ -9,5 +9,5 @@ import (
 type OBSInterface interface {
 	PutObject(bucketName, objectName string, reader io.Reader) (string, error)
 	PutFile(bucketName, objectName, filePath string) (string, error)
-	GetSignedUrl(bucket, objectName string) (string, http.Header, error)
+	GetSignedUrl(bucket, objectName string, isPublicRead bool) (string, http.Header, error)
 }

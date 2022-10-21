@@ -29,12 +29,10 @@ import (
 	"time"
 )
 
-var (
-	regex       = regexp.MustCompile("^[\u4e00-\u9fa5]$")
-	ipRegex     = regexp.MustCompile("^((2[0-4]\\d|25[0-5]|[01]?\\d\\d?)\\.){3}(2[0-4]\\d|25[0-5]|[01]?\\d\\d?)$")
-	v4AuthRegex = regexp.MustCompile("Credential=(.+?),SignedHeaders=(.+?),Signature=.+")
-	regionRegex = regexp.MustCompile(".+/\\d+/(.+?)/.+")
-)
+var regex = regexp.MustCompile("^[\u4e00-\u9fa5]$")
+var ipRegex = regexp.MustCompile("^((2[0-4]\\d|25[0-5]|[01]?\\d\\d?)\\.){3}(2[0-4]\\d|25[0-5]|[01]?\\d\\d?)$")
+var v4AuthRegex = regexp.MustCompile("Credential=(.+?),SignedHeaders=(.+?),Signature=.+")
+var regionRegex = regexp.MustCompile(".+/\\d+/(.+?)/.+")
 
 // StringContains replaces subStr in src with subTranscoding and returns the new string
 func StringContains(src string, subStr string, subTranscoding string) string {
@@ -311,6 +309,7 @@ func isPathStyle(headers map[string][]string, bucketName string) bool {
 
 // GetV2Authorization v2 Authorization
 func GetV2Authorization(ak, sk, method, bucketName, objectKey, queryURL string, headers map[string][]string) (ret map[string]string) {
+
 	if strings.HasPrefix(queryURL, "?") {
 		queryURL = queryURL[1:]
 	}
@@ -344,11 +343,9 @@ func GetV2Authorization(ak, sk, method, bucketName, objectKey, queryURL string, 
 	}
 	headers = copyHeaders(headers)
 	pathStyle := isPathStyle(headers, bucketName)
-	conf := &config{
-		securityProviders: []securityProvider{NewBasicSecurityProvider(ak, sk, "")},
-		urlHolder:         &urlHolder{scheme: "https", host: "dummy", port: 443},
-		pathStyle:         pathStyle,
-	}
+	conf := &config{securityProviders: []securityProvider{NewBasicSecurityProvider(ak, sk, "")},
+		urlHolder: &urlHolder{scheme: "https", host: "dummy", port: 443},
+		pathStyle: pathStyle}
 	conf.signature = SignatureObs
 	_, canonicalizedURL := conf.formatUrls(bucketName, objectKey, params, false)
 	ret = v2Auth(ak, sk, method, canonicalizedURL, headers, true)
@@ -408,6 +405,7 @@ func getTemporaryAndSignature(params map[string]string) (bool, string) {
 
 // GetAuthorization Authorization
 func GetAuthorization(ak, sk, method, bucketName, objectKey, queryURL string, headers map[string][]string) (ret map[string]string) {
+
 	if strings.HasPrefix(queryURL, "?") {
 		queryURL = queryURL[1:]
 	}
@@ -426,11 +424,9 @@ func GetAuthorization(ak, sk, method, bucketName, objectKey, queryURL string, he
 	if receviedHost, ok := headers[HEADER_HOST]; ok && len(receviedHost) > 0 && !strings.HasPrefix(receviedHost[0], bucketName+".") {
 		pathStyle = true
 	}
-	conf := &config{
-		securityProviders: []securityProvider{NewBasicSecurityProvider(ak, sk, "")},
-		urlHolder:         &urlHolder{scheme: "https", host: "dummy", port: 443},
-		pathStyle:         pathStyle,
-	}
+	conf := &config{securityProviders: []securityProvider{NewBasicSecurityProvider(ak, sk, "")},
+		urlHolder: &urlHolder{scheme: "https", host: "dummy", port: 443},
+		pathStyle: pathStyle}
 
 	if isTemporary {
 		return getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature, conf, params, headers, isObs)
@@ -466,11 +462,12 @@ func GetAuthorization(ak, sk, method, bucketName, objectKey, queryURL string, he
 		ret[HEADER_AUTH_CAMEL] = fmt.Sprintf("%s %s:%s", v2HashPrefix, ak, ret["Signature"])
 	}
 	return
+
 }
 
 func getTemporaryAuthorization(ak, sk, method, bucketName, objectKey, signature string, conf *config, params map[string]string,
-	headers map[string][]string, isObs bool,
-) (ret map[string]string) {
+	headers map[string][]string, isObs bool) (ret map[string]string) {
+
 	if signature == "v4" {
 		conf.signature = SignatureV4
 

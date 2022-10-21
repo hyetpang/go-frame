@@ -343,7 +343,6 @@ func convertExpirationToXML(expiration Expiration) string {
 	}
 	return ""
 }
-
 func convertNoncurrentVersionTransitionsToXML(noncurrentVersionTransitions []NoncurrentVersionTransition, isObs bool) string {
 	if length := len(noncurrentVersionTransitions); length > 0 {
 		xml := make([]string, 0, length)
@@ -366,7 +365,6 @@ func convertNoncurrentVersionTransitionsToXML(noncurrentVersionTransitions []Non
 	}
 	return ""
 }
-
 func convertNoncurrentVersionExpirationToXML(noncurrentVersionExpiration NoncurrentVersionExpiration) string {
 	if noncurrentVersionExpiration.NoncurrentDays > 0 {
 		return fmt.Sprintf("<NoncurrentVersionExpiration><NoncurrentDays>%d</NoncurrentDays></NoncurrentVersionExpiration>", noncurrentVersionExpiration.NoncurrentDays)
@@ -660,6 +658,7 @@ func ParseGetObjectMetadataOutput(output *GetObjectMetadataOutput) {
 			delete(output.ResponseHeaders, key)
 		}
 	}
+
 }
 
 // ParseCopyObjectOutput sets CopyObjectOutput field values with response headers

@@ -100,6 +100,7 @@ func (obsClient ObsClient) _doActionWithBucketAndKey(action, method, bucketName,
 }
 
 func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string, input ISerializable, output IBaseModel, xmlResult bool, repeatable bool, extensions []extensionOptions) error {
+
 	var resp *http.Response
 	var respError error
 	doLog(LEVEL_INFO, "Enter method %s...", action)
@@ -162,38 +163,32 @@ func (obsClient ObsClient) doAction(action, method, bucketName, objectKey string
 }
 
 func (obsClient ObsClient) doHTTPGet(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_GET, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
 func (obsClient ObsClient) doHTTPHead(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_HEAD, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
 func (obsClient ObsClient) doHTTPOptions(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_OPTIONS, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
 func (obsClient ObsClient) doHTTPDelete(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_DELETE, bucketName, objectKey, params, prepareHeaders(headers, false, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
 func (obsClient ObsClient) doHTTPPut(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_PUT, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
 func (obsClient ObsClient) doHTTPPost(bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (*http.Response, error) {
+	headers map[string][]string, data interface{}, repeatable bool) (*http.Response, error) {
 	return obsClient.doHTTP(HTTP_POST, bucketName, objectKey, params, prepareHeaders(headers, true, obsClient.conf.signature == SignatureObs), data, repeatable)
 }
 
@@ -319,8 +314,7 @@ func prepareData(headers map[string][]string, data interface{}) (io.Reader, erro
 }
 
 func (obsClient ObsClient) getRequest(redirectURL, requestURL string, redirectFlag bool, _data io.Reader, method,
-	bucketName, objectKey string, params map[string]string, headers map[string][]string,
-) (*http.Request, error) {
+	bucketName, objectKey string, params map[string]string, headers map[string][]string) (*http.Request, error) {
 	if redirectURL != "" {
 		if !redirectFlag {
 			parsedRedirectURL, err := url.Parse(redirectURL)
@@ -475,8 +469,8 @@ func prepareRetry(resp *http.Response, headers map[string][]string, _data io.Rea
 }
 
 func (obsClient ObsClient) doHTTP(method, bucketName, objectKey string, params map[string]string,
-	headers map[string][]string, data interface{}, repeatable bool,
-) (resp *http.Response, respError error) {
+	headers map[string][]string, data interface{}, repeatable bool) (resp *http.Response, respError error) {
+
 	bucketName = strings.TrimSpace(bucketName)
 
 	method = strings.ToUpper(method)
