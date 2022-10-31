@@ -21,7 +21,7 @@ require (
 	github.com/swaggo/swag v1.8.7
 	go.uber.org/fx v1.18.2
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95
+	golang.org/x/exp v0.0.0-20221023144134-a1e5550cf13e
 	golang.org/x/sync v0.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.4.3
