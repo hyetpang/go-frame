@@ -73,7 +73,7 @@ func New() *zap.Logger {
 	fileCfg.EncodeTime = customTimeEncoder
 	fileEncoder := zapcore.NewConsoleEncoder(fileCfg)
 
-	consoleCfg := zap.NewDevelopmentEncoderConfig()
+	consoleCfg := zap.NewProductionEncoderConfig()
 	consoleCfg.EncodeTime = customTimeEncoder
 	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
