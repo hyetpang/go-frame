@@ -78,3 +78,10 @@ func GetCodeI(err error) CodeErrI {
 	}
 	return CodeErrSystem
 }
+
+// 响应结构体
+type ResultRsp struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data"`
+}
