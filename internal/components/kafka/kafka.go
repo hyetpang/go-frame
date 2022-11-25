@@ -25,7 +25,9 @@ func NewKafka(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncP
 	config.Producer.RequiredAcks = sarama.WaitForAll          // 发送完数据需要leader和follow都确认
 	config.Producer.Partitioner = sarama.NewRandomPartitioner // 新选出一个partition
 	config.Producer.Return.Successes = true
-	config.ClientID = conf.ClientId
+	if len(conf.ClientId) > 0 {
+		config.ClientID = conf.ClientId
+	}
 	// 连接kafka
 	client, err := sarama.NewClient(strings.Split(conf.Addr, ","), config)
 	if err != nil {
