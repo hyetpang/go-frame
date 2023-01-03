@@ -1,0 +1,226 @@
+kind: pipeline
+type: docker
+name: ultrasdk.center.go.test.build
+
+clone:
+  depth: 1
+
+trigger:
+  branch:
+    - develop
+
+steps:
+  - name: build ${which}
+    image: golang:latest
+    pull: if-not-exists
+    environment:
+      GOPROXY: https://goproxy.cn,direct
+      GOPRIVATE: git-repo.yingxiong.com
+      GOPATH: /go
+      GOCACHE: /go-cache
+    volumes:
+      - name: go-path
+        path: /go
+      - name: go-cache
+        path: /go-cache
+    commands:
+      - go run ./cmd/gorm/gen_gorm.go ./logic/repository/q
+      - |
+        if [ "$which" = "community" ];then cd ./cmd/community && echo 'community 打包'; else echo 'ultrasdk.center.go 打包';fi
+      - git config --global url."https://01a79611fd2da148b613772507316fc9da87df55:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
+      - go build -tags=jsoniter -ldflags '-s -w -linkmode "external" -extldflags "-static"' -o main-origin .
+      - |
+        if [ "$which" = "community" ];then rm -rf ../../conf/app.toml && mv main-origin Dockerfile ./conf ../../ && cd ../../; else echo 'ultrasdk.center.go 打包';fi
+    when:
+      event:
+        - promote
+      target:
+        - test
+  - name: upx
+    image: cnbattle/drone-upx
+    settings:
+      level: 9
+      save_file: ./main
+      original_file: ./main-origin
+    when:
+      event:
+        - promote
+      target:
+        - test
+  - name: build && export image
+    image: plugins/docker
+    volumes:
+      - name: external-docker
+        path: /var/run/docker.sock
+    settings:
+      purge: true
+      launch_debug: true
+    commands:
+      - image_name="ultrasdk.center.go"
+      - |
+        if [ "$which" = "community" ];then image_name="community" && echo "community 构建";fi
+      -
+      - docker build -t $image_name:v2.0 .
+      - |
+        docker save -o ${DRONE_COMMIT}.tar $image_name:v2.0
+      - docker rmi $image_name:v2.0 || echo "no such images."
+    when:
+      event:
+        - promote
+      target:
+        - test
+  - name: scp image to test
+    image: appleboy/drone-scp
+    pull: if-not-exists
+    settings:
+      username: root # 远程连接账号
+      password: hero0000
+      port: 12345 # 远程连接端口
+      host:
+        - 182.148.53.161
+      command_timeout: 2m
+      target: /data/docker-build
+      source:
+        - ${DRONE_COMMIT}.tar
+    when:
+      event:
+        - promote
+      target:
+        - test
+  - name: import && run image
+    image: appleboy/drone-ssh
+    pull: if-not-exists
+    settings:
+      username: root # 远程连接账号
+      password: hero0000
+      port: 12345 # 远程连接端口
+      host:
+        - 182.148.53.161
+      command_timeout: 2m
+      script_stop: true
+      script:
+        - cd /data/docker-build
+        - repo_name=$(docker load -i ${DRONE_COMMIT}.tar)
+        - echo $repo_name
+        - image_name="ultrasdk.center.go"
+        - port=8062
+        - |
+          if [[ $repo_name =~ "community" ]];then image_name="community" && port=8066;fi
+        - echo $image_name $port
+        - |
+          if [ "$image_name" = "community" ];then echo "community 镜像";elif [ "$image_name" = "ultrasdk.center.go" ];then echo "ultrasdk.center.go 镜像";else exit 1;fi
+        - docker stop $(docker ps -f name=$image_name -q) || echo "no such images."
+        - docker container rm $(docker container ls -a --filter name=$image_name --format "{{.ID}}") || echo "no such images."
+        - docker rmi $image_name:v1.0 || echo "no such images."
+        - docker tag $image_name:v2.0 $image_name:v1.0
+        - docker rmi $image_name:v2.0 || echo "no such images."
+        - docker run -d -p $port:$port --name $image_name $image_name:v1.0
+        - rm -rf ${DRONE_COMMIT}.tar
+    when:
+      event:
+        - promote
+      target:
+        - test
+
+volumes:
+  - name: go-path
+    host:
+      path: /home/gopath
+  - name: go-cache
+    host:
+      path: /home/go-cache
+  - name: sshkey
+    host:
+      path: /root/.ssh
+  - name: external-docker
+    host:
+      path: /var/run/docker.sock
+
+---
+kind: pipeline
+type: docker
+name: ultrasdk.center.go.online.build
+
+
+clone:
+  depth: 1
+
+trigger:
+  branch:
+    - main
+
+steps:
+  - name: build
+    image: golang
+    pull: if-not-exists
+    environment:
+      GOPROXY: https://goproxy.cn,direct
+      GOPRIVATE: git-repo.yingxiong.com
+      GOPATH: /go
+      GOCACHE: /go-cache
+    volumes:
+      - name: go-path
+        path: /go
+      - name: go-cache
+        path: /go-cache
+    commands:
+      - git config --global url."https://01a79611fd2da148b613772507316fc9da87df55:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
+      - go run ./cmd/gorm/gen_gorm.go ./logic/repository/q
+      - go build -o ultrasdk_center_latest .
+    when:
+      event:
+        - promote
+      target:
+        - prod
+  - name: scp file to remote
+    image: appleboy/drone-scp
+    pull: if-not-exists
+    volumes:
+      - name: sshkey
+        path: /root/ssh
+    settings:
+      user: root # 远程连接账号
+      port: 2009 # 远程连接端口
+      host:
+        - 123.249.28.160
+      key_path: /root/ssh/release.key
+      command_timeout: 2m
+      target: /data/middleground/ultrasdk_center
+      source: ultrasdk_center_latest
+    when:
+      event:
+        - promote
+      target:
+        - prod
+  - name: deploy result notice
+    image: golang
+    pull: if-not-exists
+    environment:
+      GOPROXY: https://goproxy.cn,direct
+      GOPRIVATE: git-repo.yingxiong.com
+      GOPATH: /go
+      GOCACHE: /go-cache
+    volumes:
+      - name: go-path
+        path: /go
+      - name: go-cache
+        path: /go-cache
+    commands:
+      - |
+        curl --request POST --url 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=136c5b28-c5c8-43d7-853d-a3a047025112' --header 'content-type: application/json' --data '{"msgtype":"markdown","markdown":{"content":"打包结果: <font color=\"info\">√</font>\n>打包人: <font color=\"warning\">${DRONE_COMMIT_AUTHOR}</font>\n>仓库名: <font color=\"info\">${DRONE_REPO_NAME}</font>\n>打包分支: <font color=\"warning\">${DRONE_BRANCH}</font>\n>打包详情: [点击查看](${DRONE_BUILD_LINK})"}}'
+    when:
+      event:
+        - promote
+      target:
+        - prod
+
+volumes:
+  - name: go-path
+    host:
+      path: /home/gopath
+  - name: go-cache
+    host:
+      path: /home/go-cache
+  - name: sshkey
+    host:
+      path: /root/.ssh
