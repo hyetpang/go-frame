@@ -26,6 +26,7 @@ type CodeErrI interface {
 type CodeErrImpl struct {
 	Code uint   `json:"code"`
 	Msg  string `json:"msg"`
+	FMsg string `json:"f_msg"`
 	err  error  `json:"-"`
 	Data any    `json:"data"`
 }
@@ -39,6 +40,9 @@ func (ce *CodeErrImpl) GetCode() uint {
 }
 
 func (ce *CodeErrImpl) GetMsg() string {
+	if len(ce.FMsg) > 0 {
+		return ce.FMsg
+	}
 	return ce.Msg
 }
 
@@ -55,7 +59,7 @@ func (ce *CodeErrImpl) Error() string {
 }
 
 func (ce *CodeErrImpl) FormatMsg(args ...any) CodeErrI {
-	ce.Msg = fmt.Sprintf(ce.Msg, args)
+	ce.FMsg = fmt.Sprintf(ce.Msg, args)
 	return ce
 }
 

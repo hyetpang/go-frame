@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"syscall"
 	"time"
 
@@ -9,11 +10,13 @@ import (
 	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/dev"
+	log "github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/options"
-	"github.com/HyetPang/overseer"
-	"github.com/HyetPang/overseer/fetcher"
+	"github.com/jpillora/overseer"
+	"github.com/jpillora/overseer/fetcher"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 func Run(opt ...options.Option) {
@@ -32,6 +35,7 @@ func run(opt ...options.Option) {
 	// 使用zap日志
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 设置配置文件
+	// viper.SetDe
 	viper.SetConfigFile(ops.ConfigFile)
 	viper.SetConfigType("toml")
 	common.Panic(viper.ReadInConfig())
@@ -48,11 +52,19 @@ func run(opt ...options.Option) {
 	if ops.UseGraceRestart && !isDev {
 		graceRestartConfig := newGraceRestartConfig()
 		overseerConfig = &overseer.Config{
-			ExecFile:      graceRestartConfig.ExecFile,
+			// ExecFile:      graceRestartConfig.ExecFile,
 			RestartSignal: syscall.SIGTERM, // 这个重启信号是为了兼容supervisor进程管理器，它默认的终止信号就是TERM
 			Address:       graceRestartConfig.HttpAddr,
 			Fetcher:       &fetcher.File{Path: graceRestartConfig.ExecLatestFile, Interval: 5 * time.Second},
 			Debug:         true, // display log of overseer actions
+			PreUpgrade: func(tempBinaryPath string) error {
+				log.Info("要更新的文件路径-", zap.String("temp_binary_path", tempBinaryPath))
+				_, err := os.Stat(tempBinaryPath)
+				if err != nil {
+					log.Error("stat temp_binary_path by path err", zap.Error(err))
+				}
+				return err
+			},
 		}
 		httpProvider = fx.Provide(gin.NewWithGraceRestart)
 	} else {

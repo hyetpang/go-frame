@@ -6,7 +6,7 @@
 package app
 
 import (
-	"github.com/HyetPang/overseer"
+	"github.com/jpillora/overseer"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )

@@ -3,7 +3,6 @@ module github.com/HyetPang/go-frame
 go 1.19
 
 require (
-	github.com/HyetPang/overseer v0.0.0-20220818071149-0e95e21cd497
 	github.com/Shopify/sarama v1.37.2
 	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-contrib/zap v0.1.0
@@ -13,6 +12,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/guonaihong/gout v0.3.1
+	github.com/jpillora/overseer v1.1.6
 	github.com/matoous/go-nanoid/v2 v2.0.0
 	github.com/penglongli/gin-metrics v0.1.10
 	github.com/robfig/cron/v3 v3.0.1
@@ -110,3 +110,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/jpillora/overseer => /projects/overseer
