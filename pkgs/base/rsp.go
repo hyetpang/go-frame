@@ -26,7 +26,7 @@ type CodeErrI interface {
 type CodeErrImpl struct {
 	Code uint   `json:"code"`
 	Msg  string `json:"msg"`
-	FMsg string `json:"f_msg"`
+	FMsg string `json:"-"`
 	err  error  `json:"-"`
 	Data any    `json:"data"`
 }
