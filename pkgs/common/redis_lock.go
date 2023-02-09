@@ -96,3 +96,8 @@ func RedisUnlock(redisClient redis.UniversalClient, key, value string) error {
 	}
 	return nil
 }
+
+// 解锁
+func RedisUnlockWithoutClient(key, value string) error {
+	return RedisUnlock(redisClient, key, value)
+}
