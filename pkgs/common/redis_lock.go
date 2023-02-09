@@ -12,9 +12,19 @@ const (
 	redisLockTimeout = time.Second * 5
 )
 
+var redisClient redis.UniversalClient
+
+func InjectRedis(redisC redis.UniversalClient) {
+	redisClient = redisC
+}
+
 // 尝试获取分布式锁，获取不到会一直等待直到超时
-func TryRedisLock(redisClient redis.UniversalClient, key string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), RedisTimeout)
+func TryRedisLock(redisClient redis.UniversalClient, key string, timeouts ...time.Duration) (string, error) {
+	timeout := redisLockTimeout
+	if len(timeouts) < 1 {
+		timeout = timeouts[0]
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	nanoID, err := GenNanoID()
 	if err != nil {
@@ -34,6 +44,17 @@ func TryRedisLock(redisClient redis.UniversalClient, key string) (string, error)
 			}
 		}
 	}
+}
+
+func TryGetRedisLock(key string, timeouts ...time.Duration) (string, error) {
+	return TryRedisLock(redisClient, key, timeouts...)
+}
+
+func MustGetRedisLock(key string, timeouts ...time.Duration) (string, error) {
+	if len(timeouts) < 1 {
+		return MustRedisLockWithTimeout(redisClient, key, timeouts[0])
+	}
+	return MustRedisLock(redisClient, key)
 }
 
 // 获取分布式锁，没获取到直接返回不等待
