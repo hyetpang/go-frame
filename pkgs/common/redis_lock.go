@@ -21,7 +21,7 @@ func InjectRedis(redisC redis.UniversalClient) {
 // 尝试获取分布式锁，获取不到会一直等待直到超时
 func TryRedisLock(redisClient redis.UniversalClient, key string, timeouts ...time.Duration) (string, error) {
 	timeout := redisLockTimeout
-	if len(timeouts) < 1 {
+	if len(timeouts) > 0 {
 		timeout = timeouts[0]
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -51,7 +51,7 @@ func TryGetRedisLock(key string, timeouts ...time.Duration) (string, error) {
 }
 
 func MustGetRedisLock(key string, timeouts ...time.Duration) (string, error) {
-	if len(timeouts) < 1 {
+	if len(timeouts) > 0 {
 		return MustRedisLockWithTimeout(redisClient, key, timeouts[0])
 	}
 	return MustRedisLock(redisClient, key)
