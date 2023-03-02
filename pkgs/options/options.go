@@ -13,8 +13,8 @@ type Options struct {
 	FxOptions       []fx.Option
 	ConfigFile      string
 	IsStart         bool
-	UseHttp         bool // hi否使用http
-	UseGraceRestart bool // hi否使用优雅重启
+	UseHttp         bool // 是否使用http
+	UseGraceRestart bool // 是否使用优雅重启
 }
 type Option func(*Options)
 

@@ -1,10 +1,9 @@
 package lognotice
 
 type config struct {
-	WecomURL   string `mapstructure:"wecom_url" validate:"required_if=NoticeType 1"` // 企业微信通知url
-	Name       string `mapstructure:"name" validate:"required"`                      // 通知名字,通常是服务名字
-	NoticeType int    `mapstructure:"notice_type" validate:"required,oneof=1 2"`     // 通知类型,1=>企业微信,2=>邮件
-	// Email      *Email `mapstructure:"email" validate:"required_if=NoticeType 2"`     // 邮件通知
+	Notice     string `mapstructure:"notice" validate:"required"`                  // 通知地址，可能是一个url也可能是一个邮箱地址
+	Name       string `mapstructure:"name" validate:"required"`                    // 通知名字,通常是服务名字
+	NoticeType int    `mapstructure:"notice_type" validate:"required,oneof=1 2 3"` // 通知类型,1=>企业微信,2=>邮件,3=>飞书
 }
 
 type Email struct {
@@ -16,6 +15,7 @@ type Email struct {
 }
 
 const (
-	noticeTypeWecom = iota + 1
-	noticeTypeEmail
+	noticeTypeWecom  = iota + 1 // 企业微信
+	noticeTypeEmail             // 邮件,尚未实现
+	noticeTypeFeiShu            // 飞书
 )

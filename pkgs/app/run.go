@@ -32,13 +32,12 @@ func run(opt ...options.Option) {
 	for _, op := range opt {
 		op(ops)
 	}
-	// 使用zap日志
-	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 设置配置文件
-	// viper.SetDe
 	viper.SetConfigFile(ops.ConfigFile)
 	viper.SetConfigType("toml")
 	common.Panic(viper.ReadInConfig())
+	// 使用zap日志
+	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	var isDev bool // 这个参数用来控制在本地开发的时候不用平滑重启，直接启动，避免打断点不生效，无法调试的问题
 	if viper.GetString("server.run_mode") == common.DevMode || viper.GetString("server.run_mode") == common.TestMode {
 		dev.IsDebug = true
@@ -46,7 +45,6 @@ func run(opt ...options.Option) {
 			isDev = true
 		}
 	}
-
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
 	if ops.UseGraceRestart && !isDev {
