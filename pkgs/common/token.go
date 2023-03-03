@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
 )
 
