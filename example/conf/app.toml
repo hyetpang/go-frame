@@ -53,3 +53,13 @@ email = "guangming.zhang@yingxiong.com"                                         
 [zap_log] # 日志配置不是必传，不配置，默认的日志文件路径在可执行程序所在目录下的log目录下，level是0
 file = "" # 日志文件的路径
 level = 0 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不配置默认是0
+
+
+[grpc]
+address="" # 启动一个grpc server时，这个表示监听地址,启动一个grpc client的时候，表示要连接的grpc server地址,使用etcd作为服务发现时，client可不填
+service_prefix="grpc_ervices" # 服务注册前缀,不传。默认是grpc_ervices
+service_names=["Hello"] # 指定当前启动的服务名字或者客户端要解析的服务名字,这个仅client有效，在grpc server启动的时候服务名字会打印在控制台,不使用etcd作为服务发现，可不填
+
+
+[etcd]
+addresses="10.22.12.89:2379" # etcd地址，多个etcd使用逗号分隔

@@ -9,16 +9,18 @@ import (
 	"go.uber.org/fx"
 )
 
-type Options struct {
-	FxOptions       []fx.Option
-	ConfigFile      string
-	IsStart         bool
-	UseHttp         bool // 是否使用http
-	UseGraceRestart bool // 是否使用优雅重启
-}
-type Option func(*Options)
+type (
+	Options struct {
+		FxOptions       []fx.Option // 需要注入的对象
+		ConfigFile      string      // 配置文件路径
+		IsStart         bool        // 表示启动一次直接退出
+		UseHttp         bool        // 是否使用http
+		UseGraceRestart bool        // 是否使用优雅重启
+	}
+	Option func(*Options) // 选项函数类型
+)
 
-// 注册需要be注入的对象
+// 注册需要提供的对象
 func WithProviders(providers ...any) Option {
 	return func(o *Options) {
 		for _, provider := range providers {

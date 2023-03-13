@@ -5,6 +5,7 @@ Golang 脚手架
 1. go install github.com/swaggo/swag/cmd/swag@latest
 2. go install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest
 3. sudo apt-get install upx-ucl (ubuntu)
-
-TODO:
-1. 第三方库gout日志接入zap
+4. https://github.com/protocolbuffers/protobuf/releases 下载对应平台的protoc
+5. go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+6. go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+7. 

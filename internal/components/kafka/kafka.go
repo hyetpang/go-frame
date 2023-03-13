@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewKafka(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProducer, sarama.SyncProducer, sarama.Consumer, error) {
+func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProducer, sarama.SyncProducer, sarama.Consumer, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("kafka", &conf)
 	if err != nil {
