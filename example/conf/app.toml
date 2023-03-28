@@ -4,7 +4,7 @@ run_mode = "dev"
 #### 以下的配置都是使用go-frame框架需要用到的配置,按需配置，例如用到了mysql就加mysql的配置，用到redis就加redis配置，然后在main文件增加
 ##### options.WithMysql()和options.WithRedis()代码，即可创建mysql以及redis的依赖再使用即可
 [http]
-#addr = ":8081"             # http服务监听地址
+addr = ":8081"             # http服务监听地址
 is_doc = true              # 是否开启swagger文档
 doc_path = "/swagger/*any" # 文档路由
 is_pprof = true            # 是否开启pprof
@@ -15,7 +15,7 @@ is_prod = false            # 是否在线上环境
 
 #### 优雅重启配置
 [graceful_restart]
-http_addr = ":8081" # http服务监听地址
+http_addr = ":8081" # http服务监听地址，如果使用优雅重启，这个地址需要和http服务配置的监听地址一致
 exec_file = "" # 可执行文件
 
 [mysql]
