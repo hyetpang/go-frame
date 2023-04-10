@@ -16,7 +16,7 @@ is_prod = false            # 是否在线上环境
 #### 优雅重启配置
 [graceful_restart]
 http_addr = ":8081" # http服务监听地址，如果使用优雅重启，这个地址需要和http服务配置的监听地址一致
-exec_file = "" # 可执行文件
+exec_file = ""      # 可执行文件
 
 [mysql]
 connect_string = "kenan:12Kenan456@tcp(10.0.6.225:8904)/support_center_ultra?charset=utf8mb4&parseTime=True&loc=Local" # mysql连接字符串
@@ -56,10 +56,12 @@ level = 0 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不�
 
 
 [grpc]
-address="" # 启动一个grpc server时，这个表示监听地址,启动一个grpc client的时候，表示要连接的grpc server地址,使用etcd作为服务发现时，client可不填
-service_prefix="grpc_ervices" # 服务注册前缀,不传。默认是grpc_ervices
-service_names=["Hello"] # 指定当前启动的服务名字或者客户端要解析的服务名字,这个仅client有效，在grpc server启动的时候服务名字会打印在控制台,不使用etcd作为服务发现，可不填
+address = "" # 启动一个grpc server时，这个表示监听地址,启动一个grpc client的时候，表示要连接的grpc server地址,使用etcd作为服务发现时，client可不填
+service_prefix = "grpc_ervices" # 服务注册前缀,不传。默认是grpc_ervices
+service_names = [
+    "Hello",
+] # 指定当前启动的服务名字或者客户端要解析的服务名字,这个仅client有效，在grpc server启动的时候服务名字会打印在控制台,不使用etcd作为服务发现，可不填
 
 
 [etcd]
-addresses="10.22.12.89:2379" # etcd地址，多个etcd使用逗号分隔
+addresses = "10.22.12.89:2379" # etcd地址，多个etcd使用逗号分隔

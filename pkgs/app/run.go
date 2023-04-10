@@ -77,7 +77,7 @@ func run(opt ...options.Option) {
 		isStart: ops.IsStart,
 	}
 	if ops.UseGraceRestart && !isDev {
-		(*overseerConfig).Program = app.runWith
+		overseerConfig.Program = app.runWith
 		overseer.Run(*overseerConfig)
 	} else {
 		app.run()
