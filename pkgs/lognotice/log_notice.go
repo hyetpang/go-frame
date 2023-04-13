@@ -16,8 +16,7 @@ func Inject(logNoticeTemp interfaces.LogNoticeInterface) {
 type defaultLogNotice struct{}
 
 // 不实现
-func (defaultLogNotice) Notice(msg string, fields ...zap.Field) {
-}
+func (defaultLogNotice) Notice(msg string, fields ...zap.Field) {}
 
 // 日志通知
 func Notice(msg string, fields ...zap.Field) {
