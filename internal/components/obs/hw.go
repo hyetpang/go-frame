@@ -7,7 +7,7 @@ import (
 	"github.com/HyetPang/go-frame/internal/components/obs/hw"
 	"github.com/HyetPang/go-frame/pkgs/interfaces"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -18,7 +18,7 @@ func NewHw() interfaces.OBSInterface {
 	if err != nil {
 		logs.Fatal("获取obs配置出错", zap.Error(err))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	client, err := hw.New(conf.AK, conf.SK, conf.Endpoint)
 	if err != nil {
 		logs.Fatal("构建华为obs客户端对象出错", zap.Error(err))

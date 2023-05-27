@@ -3,8 +3,8 @@ package lognotice
 import (
 	"log"
 
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/interfaces"
-	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -17,7 +17,7 @@ func New(lc fx.Lifecycle) interfaces.LogNoticeInterface {
 	if err != nil {
 		log.Fatal("log_notice配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	n := newNotice(conf, lc)
 	return n
 }

@@ -51,8 +51,8 @@ email = "guangming.zhang@yingxiong.com"                                         
 
 
 [zap_log] # 日志配置不是必传，不配置，默认的日志文件路径在可执行程序所在目录下的log目录下，level是0
-file = "" # 日志文件的路径
-level = 0 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不配置默认是0
+file = ""  # 日志文件的路径
+level = -1 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不配置默认是0
 
 
 [grpc]

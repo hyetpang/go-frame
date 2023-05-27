@@ -30,3 +30,32 @@ func ZapStringArray(key string, data []string) zapcore.Field {
 func ZapIntArray(key string, data []int) zapcore.Field {
 	return zap.Array(key, IntArrayMarshaler(data))
 }
+
+func StringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
+	return func(ae zapcore.ArrayEncoder) error {
+		for _, v := range stringArray {
+			ae.AppendString(v)
+		}
+		return nil
+	}
+}
+
+func IntArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
+	return func(ae zapcore.ArrayEncoder) error {
+		for _, v := range intArray {
+			ae.AppendInt(v)
+		}
+		return nil
+	}
+}
+
+func ObjectArrayMarshaler(f zapcore.ArrayMarshalerFunc) zapcore.ArrayMarshalerFunc {
+	return f
+}
+
+func ObjectMarshaler(f func(zapcore.ObjectEncoder)) zapcore.ObjectMarshalerFunc {
+	return func(oe zapcore.ObjectEncoder) error {
+		f(oe)
+		return nil
+	}
+}

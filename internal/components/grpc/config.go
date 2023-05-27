@@ -1,8 +1,8 @@
 package grpc
 
 import (
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -23,6 +23,6 @@ func newConfig() *config {
 	if err != nil {
 		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	return conf
 }

@@ -26,12 +26,6 @@ const (
 	HttpCallTimeOut = time.Second * 5
 )
 
-const (
-	DateTimeFormat = "2006-01-02 15:04:05"
-	DateFormat     = "2006-01-02"
-	TimeFormat     = "15:04:05"
-)
-
 // 默认的数据库连接名字
 const (
 	DefaultDb = "default"

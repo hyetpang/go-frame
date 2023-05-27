@@ -9,7 +9,6 @@ import (
 	"github.com/HyetPang/go-frame/internal/components/gin"
 	"github.com/HyetPang/go-frame/internal/components/logs"
 	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/dev"
 	log "github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/HyetPang/go-frame/pkgs/options"
 	"github.com/jpillora/overseer"
@@ -40,7 +39,6 @@ func run(opt ...options.Option) {
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	var isDev bool // 这个参数用来控制在本地开发的时候不用平滑重启，直接启动，避免打断点不生效，无法调试的问题
 	if viper.GetString("server.run_mode") == common.DevMode || viper.GetString("server.run_mode") == common.TestMode {
-		dev.IsDebug = true
 		if viper.GetString("server.run_mode") == common.DevMode {
 			isDev = true
 		}

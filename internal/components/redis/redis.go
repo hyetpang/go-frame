@@ -9,8 +9,8 @@ import (
 	"context"
 
 	"github.com/HyetPang/go-frame/internal/constants"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -22,7 +22,7 @@ func New() redis.UniversalClient {
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	return newRedis(conf)
 }
 

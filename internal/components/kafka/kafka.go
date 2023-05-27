@@ -6,7 +6,7 @@ import (
 
 	"github.com/HyetPang/go-frame/internal/adapter/log"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/Shopify/sarama"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -19,7 +19,7 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	if err != nil {
 		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	sarama.Logger = log.NewKafkaLog(zapLog)
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll          // 发送完数据需要leader和follow都确认

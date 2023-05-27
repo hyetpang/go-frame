@@ -1,5 +1,6 @@
 package base
 
+// 预留错误码，建议业务逻辑错误码从100开始，1-99给框架预留
 var (
 	CodeErrOK            = NewCodeErr(0, "success")
 	CodeErrSystem        = NewCodeErr(1, "系统出错")

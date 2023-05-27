@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/HyetPang/go-frame/pkgs/base"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
-	"github.com/HyetPang/go-frame/pkgs/wrapper"
 	"github.com/gin-contrib/pprof"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
@@ -75,6 +74,9 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 }
 
 func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) gin.IRouter {
+	if state.Listener == nil {
+		panic("网络监听器对象(overseer.State.Listener)没有初始化!")
+	}
 	logs.Debug("NewWithGraceRestart", zap.String("state.ID", state.ID), zap.String("state.Address", state.Address))
 	router, _ := newGin(zapLog)
 	lc.Append(fx.Hook{
@@ -109,7 +111,7 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 	if err != nil {
 		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	if len(conf.Addr) < 1 {
 		logs.Fatal("http配置字段addr没有配置值")
 	}
@@ -130,7 +132,7 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 	router.NoMethod(noMethod)
 	// 健康检查
 	router.GET("/health_check", func(ctx *gin.Context) {
-		wrapper.Wrap(ctx).Success("ok")
+		common.Wrap(ctx).Success("ok")
 	})
 	// 文档
 	if conf.IsDoc {
@@ -150,5 +152,5 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 func noMethod(ctx *gin.Context) {
 	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
 	logs.Error("路由不存在:"+url, zap.String("url", url), zap.String("ip", ctx.ClientIP()))
-	wrapper.Wrap(ctx).Fail(base.CodeErrNotFound)
+	common.Wrap(ctx).Fail(base.CodeErrNotFound)
 }

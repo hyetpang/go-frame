@@ -17,7 +17,7 @@ import (
 )
 
 func New(zapLog *zap.Logger, lc fx.Lifecycle) *cron.Cron {
-	cron := cron.New(cron.WithChain(cron.Recover(zapr.NewLogger(zapLog))), cron.WithLogger(cron.VerbosePrintfLogger(log.CronLog{Logger: zapLog})))
+	cron := cron.New(cron.WithSeconds(), cron.WithChain(cron.Recover(zapr.NewLogger(zapLog))), cron.WithLogger(cron.VerbosePrintfLogger(log.CronLog{Logger: zapLog})))
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			cron.Start()

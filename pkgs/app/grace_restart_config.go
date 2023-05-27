@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/HyetPang/go-frame/pkgs/validate"
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/spf13/viper"
 )
 
@@ -21,7 +21,7 @@ func newGraceRestartConfig() *graceRestartConfig {
 	if err != nil {
 		log.Fatalf("graceful_restart配置Unmarshal到对象出错:%s", err.Error())
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	// 验证路径是否有效
 	_, err = os.Stat(conf.ExecFile)
 	if err != nil {

@@ -13,10 +13,11 @@ type Pagination struct {
 func (op *Pagination) GetPage() int {
 	return (op.Page - 1) * op.GetPageSize()
 }
+const defaultMaxPageSize = 20
 
 func (op *Pagination) GetPageSize() int {
 	if op.PageSize == 0 {
-		op.PageSize = 20
+		op.PageSize = defaultMaxPageSize
 	}
 	return op.PageSize
 }

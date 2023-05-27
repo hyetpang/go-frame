@@ -8,8 +8,8 @@ package mysql
 import (
 	"time"
 
+	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/validate"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
@@ -29,7 +29,7 @@ func New(zapLog *zap.Logger) map[string]*gorm.DB {
 		logs.Fatal("必须配置一个数据库", zap.Error(err), zap.Any("conf", configs))
 	}
 	for _, conf := range configs {
-		validate.Must(conf)
+		common.MustValidate(conf)
 	}
 	return newMysqls(configs, zapLog)
 }
@@ -40,7 +40,7 @@ func NewOne(zapLog *zap.Logger) *gorm.DB {
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
 	}
-	validate.Must(conf)
+	common.MustValidate(conf)
 	return newMysql(conf, zapLog)
 }
 
