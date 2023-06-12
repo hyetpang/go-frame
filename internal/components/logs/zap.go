@@ -30,7 +30,7 @@ func New() *zap.Logger {
 		if err != nil {
 			log.Fatalf("获取当前文件路径出错:%s", err.Error())
 		}
-		conf.Path = filepath.Join(currentPath, "log")
+		conf.Path = filepath.Join(currentPath, "logs")
 	}
 	debugFile, errFile := getLogFilePath(conf.Path)
 	hook := &lumberjack.Logger{
