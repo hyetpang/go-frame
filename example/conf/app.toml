@@ -25,6 +25,8 @@ max_life_time = 60                                                              
 max_idle_conns = 10                                                                                                    # 最大的空闲连接
 max_open_conns = 100                                                                                                   # 最大打开的连接数
 table_prefix = "su"                                                                                                    # 表前缀
+gorm_log_ignore_record_not_found_error = true                                                                          # 是否忽略gorm没找到记录的日志打印
+gorm_log_level = 4                                                                                                     # gorm日志级别,1=>静默，什么都不打印,2=>error,3=>warn,4=>info,sql在4级别打印
 name = "default"                                                                                                       # mysql配置的名字，default表示是主数据库，名字必须是default,如果是多个数据库,按toml的数组格式配置即可
 
 [redis]

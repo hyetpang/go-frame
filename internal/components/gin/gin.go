@@ -77,7 +77,6 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 	if state.Listener == nil {
 		panic("网络监听器对象(overseer.State.Listener)没有初始化!")
 	}
-	logs.Debug("NewWithGraceRestart", zap.String("state.ID", state.ID), zap.String("state.Address", state.Address))
 	router, _ := newGin(zapLog)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -151,6 +150,6 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 
 func noMethod(ctx *gin.Context) {
 	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
-	logs.Error("路由不存在:"+url, zap.String("url", url), zap.String("ip", ctx.ClientIP()))
+	logs.Error("接口不存在", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	common.Wrap(ctx).Fail(base.CodeErrNotFound)
 }

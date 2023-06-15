@@ -63,19 +63,13 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 	if len(nameStrategy.TablePrefix) > 0 {
 		nameStrategy.TablePrefix = nameStrategy.TablePrefix + "_"
 	}
-	// logLevel := logger.Warn
-	// if dev.IsDebug {
-	// 	// 开发环境打印执行的sql
-	// 	logLevel = logger.Info
-	// } else {
-	// 	//
-	// 	gormLog.IgnoreRecordNotFoundError = true
-	// }
 	gormLog := zapgorm2.New(zapLog)
+	gormLog.IgnoreRecordNotFoundError = conf.GormLogIgnoreRecordNotFoundError
+	gormLog.LogLevel = logger.LogLevel(conf.GormLogLevel)
 	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
 	db, err := gorm.Open(mysql.Open(conf.ConnectString), &gorm.Config{
 		NamingStrategy: nameStrategy,
-		Logger:         gormLog.LogMode(logger.Info),
+		Logger:         gormLog,
 	})
 	if err != nil {
 		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
