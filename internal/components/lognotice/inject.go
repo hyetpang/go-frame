@@ -3,8 +3,8 @@ package lognotice
 import (
 	"log"
 
-	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/interfaces"
+	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/interfaces"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"

@@ -1,8 +1,8 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/lognotice"
-	lognoticeI "github.com/HyetPang/go-frame/pkgs/lognotice"
+	"github.com/hyetpang/go-frame/internal/components/lognotice"
+	lognoticeI "github.com/hyetpang/go-frame/pkgs/lognotice"
 	"go.uber.org/fx"
 )
 

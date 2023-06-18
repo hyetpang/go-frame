@@ -1,8 +1,8 @@
 package grpc
 
 import (
-	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

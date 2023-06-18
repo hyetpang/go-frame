@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

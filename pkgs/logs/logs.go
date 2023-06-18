@@ -2,7 +2,7 @@
 package logs
 
 import (
-	"github.com/HyetPang/go-frame/pkgs/lognotice"
+	"github.com/hyetpang/go-frame/pkgs/lognotice"
 	"go.uber.org/zap"
 )
 

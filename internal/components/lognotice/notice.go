@@ -4,8 +4,8 @@ import (
 	"log"
 	"runtime"
 
-	"github.com/HyetPang/go-frame/pkgs/interfaces"
-	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/hyetpang/go-frame/pkgs/interfaces"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

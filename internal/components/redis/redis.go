@@ -8,10 +8,10 @@ package redis
 import (
 	"context"
 
-	"github.com/HyetPang/go-frame/internal/constants"
-	"github.com/HyetPang/go-frame/pkgs/common"
-	"github.com/HyetPang/go-frame/pkgs/logs"
 	"github.com/go-redis/redis/v8"
+	"github.com/hyetpang/go-frame/internal/constants"
+	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

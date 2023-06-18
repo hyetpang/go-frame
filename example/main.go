@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/HyetPang/go-frame/pkgs/app"
-	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/options"
+	"github.com/hyetpang/go-frame/pkgs/app"
+	"github.com/hyetpang/go-frame/pkgs/logs"
+	"github.com/hyetpang/go-frame/pkgs/options"
 	"github.com/robfig/cron/v3"
 )
 

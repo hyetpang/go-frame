@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/common"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/naming/endpoints"
 )

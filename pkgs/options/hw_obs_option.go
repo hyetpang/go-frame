@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/obs"
+	"github.com/hyetpang/go-frame/internal/components/obs"
 	"go.uber.org/fx"
 )
 

@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-04-24 09:56:04
  * @LastEditTime: 2022-04-29 18:32:17
- * @FilePath: /github.com/HyetPang/go-frame/pkgs/options/options.go
+ * @FilePath: /github.com/hyetpang/go-frame/pkgs/options/options.go
  */
 package options
 

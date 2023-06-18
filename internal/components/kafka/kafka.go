@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/HyetPang/go-frame/internal/adapter/log"
-	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/common"
 	"github.com/Shopify/sarama"
+	"github.com/hyetpang/go-frame/internal/adapter/log"
+	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"

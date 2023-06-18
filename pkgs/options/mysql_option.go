@@ -3,8 +3,8 @@ package options
 import (
 	"log"
 
-	"github.com/HyetPang/go-frame/internal/components/mysql"
-	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/internal/components/mysql"
+	"github.com/hyetpang/go-frame/pkgs/common"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )

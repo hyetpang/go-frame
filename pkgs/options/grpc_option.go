@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/grpc"
+	"github.com/hyetpang/go-frame/internal/components/grpc"
 	"go.uber.org/fx"
 )
 

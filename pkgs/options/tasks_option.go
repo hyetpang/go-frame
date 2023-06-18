@@ -6,7 +6,7 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/tasks"
+	"github.com/hyetpang/go-frame/internal/components/tasks"
 	"go.uber.org/fx"
 )
 

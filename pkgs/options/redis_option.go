@@ -1,8 +1,8 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/redis"
-	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/internal/components/redis"
+	"github.com/hyetpang/go-frame/pkgs/common"
 	"go.uber.org/fx"
 )
 

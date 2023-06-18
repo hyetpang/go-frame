@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/etcd"
+	"github.com/hyetpang/go-frame/internal/components/etcd"
 	"go.uber.org/fx"
 )
 

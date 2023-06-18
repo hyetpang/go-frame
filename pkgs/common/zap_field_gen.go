@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

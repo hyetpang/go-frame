@@ -4,10 +4,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/HyetPang/go-frame/internal/components/obs/hw"
-	"github.com/HyetPang/go-frame/pkgs/interfaces"
-	"github.com/HyetPang/go-frame/pkgs/logs"
-	"github.com/HyetPang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/internal/components/obs/hw"
+	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/interfaces"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/HyetPang/go-frame/internal/components/kafka"
+	"github.com/hyetpang/go-frame/internal/components/kafka"
 	"go.uber.org/fx"
 )
 

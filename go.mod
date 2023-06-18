@@ -1,4 +1,4 @@
-module github.com/HyetPang/go-frame
+module github.com/hyetpang/go-frame
 
 go 1.20
 

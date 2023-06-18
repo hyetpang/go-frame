@@ -1,7 +1,7 @@
 package lognotice
 
 import (
-	"github.com/HyetPang/go-frame/pkgs/interfaces"
+	"github.com/hyetpang/go-frame/pkgs/interfaces"
 	"go.uber.org/zap"
 )
 

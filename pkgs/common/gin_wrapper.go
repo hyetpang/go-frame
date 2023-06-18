@@ -3,8 +3,8 @@ package common
 import (
 	"net/http"
 
-	"github.com/HyetPang/go-frame/pkgs/base"
 	"github.com/gin-gonic/gin"
+	"github.com/hyetpang/go-frame/pkgs/base"
 )
 
 type ginContextWrapper struct {

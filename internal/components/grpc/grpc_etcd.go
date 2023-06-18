@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/HyetPang/go-frame/pkgs/logs"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	resolver "go.etcd.io/etcd/client/v3/naming/resolver"
 	"go.uber.org/fx"
