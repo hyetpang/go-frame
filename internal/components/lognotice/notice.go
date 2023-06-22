@@ -29,6 +29,8 @@ func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 	} else if conf.NoticeType == noticeTypeFeiShu {
 		// 飞书
 		sender = newFeiShuNotice()
+	} else if conf.NoticeType == noticeTypeTelegram {
+		sender = newTelegramSender(conf.ChatID)
 	} else {
 		log.Fatal("错误日志配置的通知的类型有误", conf)
 	}
@@ -66,7 +68,7 @@ func (notice *notice) Watch() {
 	}()
 	logs.Info("开始watch出错消息...")
 	for noticeMsg := range notice.noticeCh {
-		notice.sender.Send(notice.conf.Name, notice.conf.Notice, noticeMsg)
+		_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, noticeMsg)
 	}
 }
 

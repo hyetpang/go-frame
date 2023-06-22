@@ -3,6 +3,7 @@
  * @LastEditTime: 2022-04-29 18:32:17
  * @FilePath: /github.com/hyetpang/go-frame/pkgs/options/options.go
  */
+
 package options
 
 import (
@@ -11,8 +12,8 @@ import (
 
 type (
 	Options struct {
-		FxOptions       []fx.Option // 需要注入的对象
 		ConfigFile      string      // 配置文件路径
+		FxOptions       []fx.Option // 需要注入的对象
 		IsStart         bool        // 表示启动一次直接退出
 		UseHttp         bool        // 是否使用http
 		UseGraceRestart bool        // 是否使用优雅重启

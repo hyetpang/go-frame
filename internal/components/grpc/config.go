@@ -10,8 +10,8 @@ import (
 // grpc 配置
 type config struct {
 	Address       string   `mapstructure:"address"`        // 监听地址
-	ServiceNames  []string `mapstructure:"service_names"`  // 服务名字
 	ServicePrefix string   `mapstructure:"service_prefix"` // 服务前缀
+	ServiceNames  []string `mapstructure:"service_names"`  // 服务名字
 }
 
 const defaultServicePrefix = "grpc_services"

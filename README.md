@@ -9,3 +9,4 @@ Golang 脚手架
 5. go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 6. go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 7. go install github.com/securego/gosec/v2/cmd/gosec@latest
+8. go install github.com/hyetpang/go-code-gen@latest

@@ -108,7 +108,7 @@ func RedisUnlockWithoutClient(key, value string) error {
 }
 
 // 使用redsync分布式锁库
-func MustRedSync(key string, options ...redsync.Option) error {
+func MustRedSync(key string, options ...redsync.Option) (*redsync.Mutex, error) {
 	if len(options) < 1 {
 		options = []redsync.Option{
 			redsync.WithGenValueFunc(GenNanoID),
@@ -118,13 +118,13 @@ func MustRedSync(key string, options ...redsync.Option) error {
 	lock := redisSync.NewMutex(key, options...)
 	err := lock.Lock()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return lock, nil
 }
 
 // 使用redsync解锁分布式锁
-func UnlockRedSync(mutex *redsync.Mutex) error {
+func RedSyncUnlock(mutex *redsync.Mutex) error {
 	ok, err := mutex.Unlock()
 	if err != nil {
 		return err

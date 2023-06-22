@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// 企业微信
+// 飞书
 type feiShuSender struct{}
 
 func newFeiShuNotice() sender {
@@ -19,16 +19,15 @@ func newFeiShuNotice() sender {
 }
 
 type feiShuSendMsgRsp struct {
-	Code int    `json:"code"`
 	Msg  string `json:"msg"`
+	Code int    `json:"code"`
 }
 
 // 通知
 func (feiShuSender *feiShuSender) Send(name, url string, msg noticeContent) error {
 	params := make(map[string]interface{}, 3)
 	params["msg_type"] = "text"
-	var content string
-	content = "{\"text\":\"服务[" + name + "]出错啦,请排查问题,出错概览如下: \\n描述:" + msg.msg + " \\n代码行数:" + msg.filename + ":" + strconv.Itoa(msg.line) + "  \\n详情请查看具体日志文件\"}"
+	content := "{\"text\":\"服务[" + name + "]出错啦,请排查问题,出错概览如下: \\n描述:" + msg.msg + " \\n代码行数:" + msg.filename + ":" + strconv.Itoa(msg.line) + "  \\n详情请查看具体日志文件\"}"
 	params["content"] = content
 	response := new(feiShuSendMsgRsp)
 	err := gout.POST(url).SetTimeout(time.Second * 5).SetJSON(params).BindJSON(response).Do()

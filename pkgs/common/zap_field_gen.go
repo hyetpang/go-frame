@@ -11,7 +11,7 @@ import (
 )
 
 func GenZapNanoId() zapcore.Field {
-	return zap.String("nanoId", GenNanoIdString())
+	return zap.String("nano_id", GenNanoIdString())
 }
 
 func GenNanoIdString() string {
