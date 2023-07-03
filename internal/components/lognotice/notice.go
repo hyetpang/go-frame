@@ -30,6 +30,7 @@ func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 		// 飞书
 		sender = newFeiShuNotice()
 	} else if conf.NoticeType == noticeTypeTelegram {
+		// telegram
 		sender = newTelegramSender(conf.ChatID)
 	} else {
 		log.Fatal("错误日志配置的通知的类型有误", conf)
@@ -62,7 +63,7 @@ func (notice *notice) Watch() {
 			if ok {
 				logs.ErrorWithoutNotice("错误通知panic", zap.Error(err))
 			} else {
-				logs.ErrorWithoutNotice("错误通知panic")
+				logs.ErrorWithoutNotice("错误通知panic", zap.Any("recover", r))
 			}
 		}
 	}()
