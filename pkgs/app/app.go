@@ -6,6 +6,9 @@
 package app
 
 import (
+	"context"
+	"time"
+
 	"github.com/jpillora/overseer"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -20,10 +23,17 @@ func (app *App) runWith(state overseer.State) {
 	app.options = append(app.options, fx.Provide(func() overseer.State {
 		return state
 	}))
-	app.run()
+	app.run(false)
 }
 
-func (app *App) run() {
+func (app *App) run(isStart bool) {
 	viper.Debug() // 打印配置项
-	fx.New(app.options...).Run()
+	application := fx.New(app.options...)
+	if isStart {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		application.Start(ctx)
+	} else {
+		application.Run()
+	}
 }

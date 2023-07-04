@@ -78,6 +78,6 @@ func run(opt ...options.Option) {
 		overseerConfig.Program = app.runWith
 		overseer.Run(*overseerConfig)
 	} else {
-		app.run()
+		app.run(ops.IsStart)
 	}
 }
