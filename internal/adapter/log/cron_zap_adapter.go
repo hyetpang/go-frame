@@ -16,5 +16,5 @@ type CronLog struct {
 }
 
 func (cl CronLog) Printf(msg string, format ...interface{}) {
-	cl.Logger.Debug("cron_log", zap.String("cron", fmt.Sprintf(msg, format...)))
+	cl.Logger.Debug("cron", zap.String("cron", fmt.Sprintf(msg, format...)))
 }

@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/spf13/viper"
@@ -67,13 +66,17 @@ func New() *zap.Logger {
 
 	consoleDebugging := zapcore.Lock(os.Stdout)
 	consoleErrors := zapcore.Lock(os.Stderr)
-
 	fileCfg := zap.NewProductionEncoderConfig()
-	fileCfg.EncodeTime = customTimeEncoder
+	consoleCfg := zap.NewProductionEncoderConfig()
+	if common.Dev {
+		fileCfg = zap.NewDevelopmentEncoderConfig()
+		consoleCfg = zap.NewDevelopmentEncoderConfig()
+	}
+	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
 	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
 
-	consoleCfg := zap.NewProductionEncoderConfig()
-	consoleCfg.EncodeTime = customTimeEncoder
+	// consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
 	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
 	core := zapcore.NewTee(
@@ -90,9 +93,9 @@ func New() *zap.Logger {
 	return logger
 }
 
-func customTimeEncoder(time time.Time, encoder zapcore.PrimitiveArrayEncoder) {
-	encoder.AppendString(time.Format("2006-01-02 15:04:05.000000"))
-}
+// func customTimeEncoder(time time.Time, encoder zapcore.PrimitiveArrayEncoder) {
+// 	encoder.AppendString(time.Format("2006-01-02 15:04:05.000000"))
+// }
 
 // 获取默认的日志文件位置
 func getLogFilePath(currentPath string) (string, string) {

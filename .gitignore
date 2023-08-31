@@ -1,4 +1,5 @@
 .vscode
 target
-example/log
+example/logs
 api.rest
+*.log

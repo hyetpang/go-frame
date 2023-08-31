@@ -43,6 +43,7 @@ func run(opt ...options.Option) {
 			isDev = true
 		}
 	}
+	common.Dev = viper.GetString("server.run_mode") == common.DevMode
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
 	if ops.UseGraceRestart && !isDev {
