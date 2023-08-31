@@ -75,7 +75,7 @@ func New() *zap.Logger {
 	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
 	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
 
-	// consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
 	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
