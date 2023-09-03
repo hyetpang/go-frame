@@ -68,16 +68,17 @@ func New() *zap.Logger {
 	consoleErrors := zapcore.Lock(os.Stderr)
 	fileCfg := zap.NewProductionEncoderConfig()
 	consoleCfg := zap.NewProductionEncoderConfig()
+
+	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
+	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
+	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
+
 	if common.Dev {
 		fileCfg = zap.NewDevelopmentEncoderConfig()
 		consoleCfg = zap.NewDevelopmentEncoderConfig()
+		consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
-	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
-	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
-
-	consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
-	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
 	core := zapcore.NewTee(
 		zapcore.NewCore(consoleEncoder, consoleErrors, highPriority),
@@ -119,7 +120,7 @@ func makeDir(path string) error {
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return os.Mkdir(path, 666)
+			return os.Mkdir(path, os.ModePerm)
 		}
 	}
 	return nil

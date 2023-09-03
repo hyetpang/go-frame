@@ -16,10 +16,7 @@ import (
 // 使用etcd作为服务发现
 func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) *grpc.Server {
 	s, lis, conf := newServer(zapLog)
-	serviceNamePrefix := defaultServicePrefix
-	if len(conf.ServicePrefix) > 0 {
-		serviceNamePrefix = conf.ServicePrefix
-	}
+	serviceNamePrefix := conf.ServicePrefix
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// 开始处理
@@ -80,13 +77,9 @@ func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 	if err != nil {
 		logs.Fatal("创建etcd服务解析器对象出错", zap.Error(err))
 	}
-	serviceNamePrefix := defaultServicePrefix
-	if len(conf.ServicePrefix) > 0 {
-		serviceNamePrefix = conf.ServicePrefix
-	}
 	clients := make(map[string]*grpc.ClientConn, len(conf.ServiceNames))
 	for _, serviceName := range conf.ServiceNames {
-		conn := newClient(fmt.Sprintf("%s:///%s/%s", etcdResolver.Scheme(), serviceNamePrefix, serviceName), lc, zapLog, etcdResolver)
+		conn := newClient(fmt.Sprintf("%s:///%s/%s", etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
 		clients[serviceName] = conn
 	}
 	return clients

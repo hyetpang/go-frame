@@ -14,8 +14,6 @@ type config struct {
 	ServiceNames  []string `mapstructure:"service_names"`  // 服务名字
 }
 
-const defaultServicePrefix = "grpc_services"
-
 // 初始化config
 func newConfig() *config {
 	conf := new(config)
@@ -24,5 +22,8 @@ func newConfig() *config {
 		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
 	common.MustValidate(conf)
+	if len(conf.ServicePrefix) <= 0 {
+		conf.ServicePrefix = "grpc_services"
+	}
 	return conf
 }
