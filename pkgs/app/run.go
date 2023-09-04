@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -37,6 +38,8 @@ func run(opt ...options.Option) {
 	common.Panic(viper.ReadInConfig())
 	// 使用zap日志
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
+	// 打印版本
+	ops.FxOptions = append(ops.FxOptions, fx.Invoke(printVersion))
 	var isDev bool // 这个参数用来控制在本地开发的时候不用平滑重启，直接启动，避免打断点不生效，无法调试的问题
 	if viper.GetString("server.run_mode") == common.DevMode || viper.GetString("server.run_mode") == common.TestMode {
 		if viper.GetString("server.run_mode") == common.DevMode {
@@ -80,5 +83,21 @@ func run(opt ...options.Option) {
 		overseer.Run(*overseerConfig)
 	} else {
 		app.run()
+	}
+}
+
+func printVersion(_ *zap.Logger) {
+	info, ok := debug.ReadBuildInfo()
+	if ok {
+		var vcsTime, vcsRevision string
+		for _, b := range info.Settings {
+			if b.Key == "vsc.time" {
+				vcsTime = b.Value
+			}
+			if b.Key == "vcs.revision" {
+				vcsRevision = b.Value
+			}
+		}
+		log.Info("版本信息", zap.String("git提交时间", vcsTime), zap.String("git提交hash", vcsRevision), zap.String("go_version", info.GoVersion))
 	}
 }
