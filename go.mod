@@ -25,8 +25,6 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.9
 	go.uber.org/fx v1.20.0
 	go.uber.org/zap v1.25.0
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
-	golang.org/x/sync v0.3.0
 	google.golang.org/grpc v1.52.3
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/mysql v1.5.1

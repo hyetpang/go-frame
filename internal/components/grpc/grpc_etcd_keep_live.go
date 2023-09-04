@@ -64,7 +64,7 @@ func etcdRegisterService(ctx context.Context, servicePrefix, serviceName, addr s
 
 	cancelCtx, cancel = context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
-	if err := em.AddEndpoint(cancelCtx, fmt.Sprintf("%s/%s/%s", servicePrefix, serviceName, common.GenNanoIdString()), endpoints.Endpoint{
+	if err := em.AddEndpoint(cancelCtx, fmt.Sprintf("%s/%s/%s", servicePrefix, serviceName, common.GenID()), endpoints.Endpoint{
 		Addr: addr,
 	}, clientv3.WithLease(leaseResp.ID)); err != nil {
 		return err

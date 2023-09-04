@@ -6,27 +6,13 @@
 package common
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-	"math/rand"
-	"regexp"
-	"strconv"
-	"time"
 	"unsafe"
-
-	"golang.org/x/exp/slices"
 )
 
 func Panic(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func Md5(str string) string {
-	h := md5.New()
-	h.Write([]byte(str))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // string转byte
@@ -42,28 +28,4 @@ func StringToBytes(s string) []byte {
 // bytes转string
 func BytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
-}
-
-func Now() int64 {
-	return time.Now().Unix()
-}
-
-// IsInArray找到给定的ele是否在arr中
-func IsInArray[E comparable](arr []E, ele E) bool {
-	return slices.Contains(arr, ele)
-}
-
-func CheckEmail(email string) bool {
-	matched, _ := regexp.MatchString(`\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*`, email)
-	return matched
-}
-
-func Rand(num int) string {
-	result := ""
-	temp := 0
-	for i := 0; i < num; i++ {
-		temp = rand.New(rand.NewSource(time.Now().UnixNano() + int64(temp))).Int()
-		result += strconv.Itoa(temp)
-	}
-	return result
 }

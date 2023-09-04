@@ -1,37 +1,23 @@
 package common
 
 import (
-	"math/rand"
-	"strconv"
-	"time"
-
-	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func GenZapNanoId() zapcore.Field {
-	return zap.String("nano_id", GenNanoIdString())
-}
-
-func GenNanoIdString() string {
-	nanoId, err := GenNanoID()
-	if err != nil {
-		logs.Error("zap nanoid生成出错", zap.Error(err))
-		nanoId = strconv.Itoa(int(time.Now().Unix() + rand.Int63n(50)))
-	}
-	return nanoId
+	return zap.String("nano_id", GenID())
 }
 
 func ZapStringArray(key string, data []string) zapcore.Field {
-	return zap.Array(key, StringArrayMarshaler(data))
+	return zap.Array(key, stringArrayMarshaler(data))
 }
 
 func ZapIntArray(key string, data []int) zapcore.Field {
-	return zap.Array(key, IntArrayMarshaler(data))
+	return zap.Array(key, intArrayMarshaler(data))
 }
 
-func StringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
+func stringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
 	return func(ae zapcore.ArrayEncoder) error {
 		for _, v := range stringArray {
 			ae.AppendString(v)
@@ -40,7 +26,7 @@ func StringArrayMarshaler(stringArray []string) zapcore.ArrayMarshalerFunc {
 	}
 }
 
-func IntArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
+func intArrayMarshaler(intArray []int) zapcore.ArrayMarshalerFunc {
 	return func(ae zapcore.ArrayEncoder) error {
 		for _, v := range intArray {
 			ae.AppendInt(v)
