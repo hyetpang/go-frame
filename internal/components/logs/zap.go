@@ -12,12 +12,13 @@ import (
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func New() *zap.Logger {
+func New(lc fx.Lifecycle) *zap.Logger {
 	conf := new(config)
 	err := viper.UnmarshalKey("zap_log", &conf)
 	if err != nil {
@@ -91,6 +92,9 @@ func New() *zap.Logger {
 	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
 	// logger和下面return的zap.Logger依赖唯一不同是zap.AddCallerSkip(1)，下面return是作为依赖给各种第三方库使用的
 	zap.ReplaceGlobals(logger.WithOptions(zap.AddCallerSkip(1)))
+	lc.Append(fx.StopHook(func() {
+		_ = logger.Sync() // 日志同步
+	}))
 	return logger
 }
 
