@@ -90,9 +90,13 @@ func New(lc fx.Lifecycle) *zap.Logger {
 	)
 
 	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
+	if len(conf.ServiceName) > 0 {
+		logger = logger.WithOptions(zap.Fields(zap.String("service", conf.ServiceName)))
+	}
 	// logger和下面return的zap.Logger依赖唯一不同是zap.AddCallerSkip(1)，下面return是作为依赖给各种第三方库使用的
 	zap.ReplaceGlobals(logger.WithOptions(zap.AddCallerSkip(1)))
 	lc.Append(fx.StopHook(func() {
+		_ = zap.L().Sync()
 		_ = logger.Sync() // 日志同步
 	}))
 	return logger

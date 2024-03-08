@@ -21,6 +21,7 @@ func main() {
 		options.WithInvokes(tasks),
 		options.WithGRPCClient(),
 		options.WithGRPCServer(),
+		options.WithEtcd(),
 	)
 }
 
