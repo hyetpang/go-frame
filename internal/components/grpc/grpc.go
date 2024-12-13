@@ -75,13 +75,14 @@ func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config) {
 		logs.Error("grpc监听地址必填")
 	}
 	// 创建grpc server
-	s := grpc.NewServer(grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-		grpc_ctxtags.UnaryServerInterceptor(),
-		grpc_opentracing.UnaryServerInterceptor(),
-		grpc_prometheus.UnaryServerInterceptor,
-		grpc_zap.UnaryServerInterceptor(zapLog, grpc_zap.WithLevels(grpc_zap.DefaultCodeToLevel)),
-		grpc_recovery.UnaryServerInterceptor(),
-	)),
+	s := grpc.NewServer(grpc.UnaryInterceptor(
+		grpc_middleware.ChainUnaryServer(
+			grpc_ctxtags.UnaryServerInterceptor(),
+			grpc_opentracing.UnaryServerInterceptor(),
+			grpc_prometheus.UnaryServerInterceptor,
+			grpc_zap.UnaryServerInterceptor(zapLog, grpc_zap.WithLevels(grpc_zap.DefaultCodeToLevel)),
+			grpc_recovery.UnaryServerInterceptor(),
+		)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_opentracing.StreamServerInterceptor(),

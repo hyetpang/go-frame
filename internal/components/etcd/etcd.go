@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func New(zaoLog *zap.Logger) *clientv3.Client {
+func New(zapLog *zap.Logger) *clientv3.Client {
 	conf := newConfig()
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            strings.Split(conf.Addresses, ","),
@@ -22,7 +22,7 @@ func New(zaoLog *zap.Logger) *clientv3.Client {
 		MaxCallSendMsgSize:   0,
 		MaxCallRecvMsgSize:   0,
 		RejectOldCluster:     false,
-		Logger:               zaoLog,
+		Logger:               zapLog,
 		PermitWithoutStream:  false,
 	})
 	if err != nil {
