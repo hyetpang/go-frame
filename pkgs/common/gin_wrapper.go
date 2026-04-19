@@ -23,14 +23,14 @@ func (gcw *ginContextWrapper) Success(data any) {
 	})
 }
 
-func (gcw *ginContextWrapper) Fail(err base.CodeErrI, data ...any) {
+func (gcw *ginContextWrapper) Fail(err base.CodeErrI) {
 	gcw.ctx.PureJSON(http.StatusOK, gin.H{
 		"msg":  err.GetMsg(),
 		"code": err.GetCode(),
 	})
 }
 
-func (gcw *ginContextWrapper) AbortFail(err base.CodeErrI, data ...any) {
+func (gcw *ginContextWrapper) AbortFail(err base.CodeErrI) {
 	gcw.ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
 		"msg":  err.GetMsg(),
 		"code": err.GetCode(),

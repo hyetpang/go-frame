@@ -1,8 +1,3 @@
-/*
- * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-05-09 10:08:41
- * @FilePath: /go-frame/pkgs/app/app.go
- */
 package app
 
 import (

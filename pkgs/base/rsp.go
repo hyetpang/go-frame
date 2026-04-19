@@ -1,14 +1,3 @@
-/*
- * @Date: 2022-05-05 15:26:12
- * @LastEditTime: 2022-05-17 11:12:02
- * @FilePath: /ultrasdk.center.go/projects/ultrasdk/go-frame/pkgs/base/rsp.go
- * @Author: guangming.zhang hyetpang@yeah.net
- * @LastEditors: guangming.zhang hyetpang@yeah.net
- * @Description: 基本数据
- *
- * Copyright (c) 2022 by hero, All Rights Reserved.
- */
-
 package base
 
 import (
@@ -24,7 +13,6 @@ type CodeErrI interface {
 	error
 }
 type CodeErrImpl struct {
-	err  error  `json:"-"`
 	Data any    `json:"data"`
 	Msg  string `json:"msg"`
 	FMsg string `json:"-"`
@@ -47,15 +35,12 @@ func (ce *CodeErrImpl) IsSuccess() bool {
 	return ce.Code == 0
 }
 func (ce *CodeErrImpl) Error() string {
-	err := ce.err
-	if err != nil {
-		return err.Error()
-	}
 	return strconv.Itoa(int(ce.GetCode())) + ":" + ce.GetMsg()
 }
 func (ce *CodeErrImpl) FormatMsg(args ...any) CodeErrI {
-	ce.FMsg = fmt.Sprintf(ce.Msg, args)
-	return ce
+	clone := *ce
+	clone.FMsg = fmt.Sprintf(ce.Msg, args...)
+	return &clone
 }
 func toCodeI(err error) (CodeErrI, bool) {
 	if err == nil {

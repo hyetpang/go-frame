@@ -32,11 +32,11 @@ func Info(msg string, fields ...zap.Field) {
 }
 
 func With(fields ...zap.Field) *Log {
-	return &Log{
-		Logger: zap.L().With(fields...),
-	}
+	return &Log{Logger: zap.L().With(fields...)}
 }
 
+// Log 在 *zap.Logger 之上仅覆盖 Error（附带错误通知），
+// Debug/Info/Warn/Fatal 通过结构体嵌入自动提升。
 type Log struct {
 	*zap.Logger
 }
@@ -50,24 +50,6 @@ func (l *Log) ErrorWithoutNotice(msg string, fields ...zap.Field) {
 	l.Logger.Error(msg, fields...)
 }
 
-func (l *Log) Debug(msg string, fields ...zap.Field) {
-	l.Logger.Debug(msg, fields...)
-}
-
-func (l *Log) Fatal(msg string, fields ...zap.Field) {
-	l.Logger.Fatal(msg, fields...)
-}
-
-func (l *Log) Warn(msg string, fields ...zap.Field) {
-	l.Logger.Warn(msg, fields...)
-}
-
-func (l *Log) Info(msg string, fields ...zap.Field) {
-	l.Logger.Info(msg, fields...)
-}
-
 func (l *Log) With(fields ...zap.Field) *Log {
-	return &Log{
-		Logger: l.Logger.With(fields...),
-	}
+	return &Log{Logger: l.Logger.With(fields...)}
 }

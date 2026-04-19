@@ -1,8 +1,3 @@
-/*
- * @Date: 2022-04-30 10:35:09
- * @LastEditTime: 2022-05-07 22:22:12
- * @FilePath: \go-frame\internal\components\mysql\mysql.go
- */
 package mysql
 
 import (

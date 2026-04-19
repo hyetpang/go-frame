@@ -1,8 +1,3 @@
-/*
- * @Date: 2022-04-30 10:35:09
- * @LastEditTime: 2022-05-07 21:15:53
- * @FilePath: \go-frame\internal\components\redis\redis.go
- */
 package redis
 
 import (
@@ -20,7 +15,7 @@ func New() redis.UniversalClient {
 	conf := new(config)
 	err := viper.UnmarshalKey("redis", conf)
 	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("redis配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
 	common.MustValidate(conf)
 	return newRedis(conf)

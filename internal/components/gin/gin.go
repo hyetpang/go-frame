@@ -1,12 +1,9 @@
-/*
- * @Date: 2022-04-30 16:15:16
- * @LastEditTime: 2022-05-13 10:06:10
- * @FilePath: /go-frame/internal/components/gin/gin.go
- */
 package gin
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -26,22 +23,29 @@ import (
 	"go.uber.org/zap"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
-	router, conf := newGin(zapLog)
+func New(zapLog *zap.Logger, lc fx.Lifecycle) (gin.IRouter, error) {
+	router, conf, err := newGin(zapLog)
+	if err != nil {
+		return nil, err
+	}
 	lis, err := net.Listen("tcp4", conf.Addr)
 	if err != nil {
-		logs.Fatal("http服务地址监听出错", zap.Error(err), zap.String("监听的地址", conf.Addr))
+		return nil, fmt.Errorf("http服务地址监听出错 %s: %w", conf.Addr, err)
 	}
 
 	srv := &http.Server{
-		Handler: router,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			errC := make(chan error, 1)
 			go func() {
-				if err := srv.Serve(lis); err != nil && err != http.ErrServerClosed {
+				if err := srv.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errC <- err
 				}
 			}()
@@ -62,27 +66,29 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) gin.IRouter {
 			}
 		},
 		OnStop: func(ctx context.Context) error {
-			err := srv.Shutdown(ctx)
-			if err != context.Canceled {
+			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				return err
 			}
 			logs.Info("http服务器已关闭...")
 			return nil
 		},
 	})
-	return router
+	return router, nil
 }
 
-func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) gin.IRouter {
+func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) (gin.IRouter, error) {
 	if state.Listener == nil {
-		panic("网络监听器对象(overseer.State.Listener)没有初始化!")
+		return nil, errors.New("网络监听器对象(overseer.State.Listener)没有初始化")
 	}
-	router, _ := newGin(zapLog)
+	router, _, err := newGin(zapLog)
+	if err != nil {
+		return nil, err
+	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			errC := make(chan error, 1)
 			go func() {
-				if err := router.RunListener(state.Listener); err != nil && err != http.ErrServerClosed {
+				if err := router.RunListener(state.Listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errC <- err
 				}
 			}()
@@ -101,18 +107,17 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 			return nil
 		},
 	})
-	return router
+	return router, nil
 }
 
-func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
+func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
 	conf := new(config)
-	err := viper.UnmarshalKey("http", conf)
-	if err != nil {
-		logs.Fatal("http配置Unmarshal到对象出错", zap.Error(err))
+	if err := viper.UnmarshalKey("http", conf); err != nil {
+		return nil, nil, fmt.Errorf("http配置Unmarshal到对象出错: %w", err)
 	}
 	common.MustValidate(conf)
 	if len(conf.Addr) < 1 {
-		logs.Fatal("http配置字段addr没有配置值")
+		return nil, nil, errors.New("http配置字段addr没有配置值")
 	}
 	if conf.IsProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -145,7 +150,7 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config) {
 			pprof.Register(router)
 		}
 	}
-	return router, conf
+	return router, conf, nil
 }
 
 func noMethod(ctx *gin.Context) {

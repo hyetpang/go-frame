@@ -3,12 +3,13 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/naming/endpoints"
+	"go.uber.org/zap"
 )
 
 // grpc 使用etcd心跳保活
@@ -19,19 +20,27 @@ func etcdKeepLive(ctx context.Context, leaseChannel <-chan *clientv3.LeaseKeepAl
 			select {
 			case resp := <-leaseChannel:
 				if resp != nil {
-					// log.Println("keep alive success.")
-				} else {
-					log.Println("keep alive failed.")
-					failedCount++
-					for failedCount > 3 {
-						cleanFunc()
-						if err := etcdRegisterService(ctx, servicePrefix, serviceName, addr, client); err != nil {
-							time.Sleep(time.Second)
-							continue
-						}
-						return
-					}
+					failedCount = 0
 					continue
+				}
+				failedCount++
+				logs.Warn("etcd keep alive failed", zap.Int("failed_count", failedCount))
+				if failedCount < 3 {
+					continue
+				}
+				cleanFunc()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
+					if err := etcdRegisterService(ctx, servicePrefix, serviceName, addr, client); err != nil {
+						logs.Error("etcd re-register failed", zap.Error(err))
+						time.Sleep(time.Second)
+						continue
+					}
+					return
 				}
 			case <-ctx.Done():
 				cleanFunc()

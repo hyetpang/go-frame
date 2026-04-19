@@ -35,7 +35,7 @@ func newConfig() *config {
 	conf := new(config)
 	err := viper.UnmarshalKey("etcd", &conf)
 	if err != nil {
-		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("etcd配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
 	common.MustValidate(conf)
 	return conf

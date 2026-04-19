@@ -3,6 +3,7 @@ package lognotice
 import (
 	"log"
 	"runtime"
+	"sync"
 
 	"github.com/hyetpang/go-frame/pkgs/interfaces"
 	"github.com/hyetpang/go-frame/pkgs/logs"
@@ -10,34 +11,34 @@ import (
 	"go.uber.org/zap"
 )
 
+const noticeChanBuffer = 128
+
 type notice struct {
 	conf     *config
 	noticeCh chan noticeContent
+	done     chan struct{}
+	closeOnce sync.Once
 	sender
 }
 
 func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 	var sender sender
-	if conf.NoticeType == noticeTypeWecom {
-		// 企业微信
+	switch conf.NoticeType {
+	case noticeTypeWecom:
 		sender = newWecomNotice()
-	} else if conf.NoticeType == noticeTypeEmail {
-		panic("日志错误通知尚未支持邮件")
-		// noticeInterface = &emailNotice{
-		// 	conf: conf,
-		// }
-	} else if conf.NoticeType == noticeTypeFeiShu {
-		// 飞书
+	case noticeTypeFeiShu:
 		sender = newFeiShuNotice()
-	} else if conf.NoticeType == noticeTypeTelegram {
-		// telegram
+	case noticeTypeTelegram:
 		sender = newTelegramSender(conf.ChatID)
-	} else {
-		log.Fatal("错误日志配置的通知的类型有误", conf)
+	case noticeTypeEmail:
+		log.Fatal("日志错误通知尚未支持邮件")
+	default:
+		log.Fatalf("错误日志配置的通知的类型有误:%+v", conf)
 	}
 	n := &notice{
 		conf:     conf,
-		noticeCh: make(chan noticeContent, 1),
+		noticeCh: make(chan noticeContent, noticeChanBuffer),
+		done:     make(chan struct{}),
 		sender:   sender,
 	}
 	go n.Watch()
@@ -49,18 +50,23 @@ func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 
 func (notice *notice) Notice(msg string, fields ...zap.Field) {
 	_, filename, line, _ := runtime.Caller(3)
-	notice.noticeCh <- noticeContent{
+	content := noticeContent{
 		msg:      msg,
 		filename: filename,
 		line:     line,
+	}
+	select {
+	case notice.noticeCh <- content:
+	case <-notice.done:
+	default:
+		// 通道已满,丢弃本条通知避免阻塞调用方
 	}
 }
 
 func (notice *notice) Watch() {
 	defer func() {
 		if r := recover(); r != nil {
-			err, ok := r.(error)
-			if ok {
+			if err, ok := r.(error); ok {
 				logs.ErrorWithoutNotice("错误通知panic", zap.Error(err))
 			} else {
 				logs.ErrorWithoutNotice("错误通知panic", zap.Any("recover", r))
@@ -68,12 +74,19 @@ func (notice *notice) Watch() {
 		}
 	}()
 	logs.Info("开始watch出错消息...")
-	for noticeMsg := range notice.noticeCh {
-		_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, noticeMsg)
+	for {
+		select {
+		case msg := <-notice.noticeCh:
+			_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, msg)
+		case <-notice.done:
+			return
+		}
 	}
 }
 
 func (notice *notice) Close() {
-	logs.Info("结束watch出错消息...")
-	close(notice.noticeCh)
+	notice.closeOnce.Do(func() {
+		logs.Info("结束watch出错消息...")
+		close(notice.done)
+	})
 }

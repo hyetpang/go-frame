@@ -1,8 +1,3 @@
-/*
- * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-04-30 16:03:18
- * @FilePath: \go-frame\internal\components\logs\init.go
- */
 package logs
 
 import (
@@ -32,15 +27,6 @@ func New(lc fx.Lifecycle) *zap.Logger {
 		}
 		conf.Path = filepath.Join(currentPath, "logs")
 	}
-	debugFile, errFile := getLogFilePath(conf.Path)
-	hook := &lumberjack.Logger{
-		Filename:   debugFile,     // 日志文件路径
-		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
-		MaxBackups: logMaxBackups, // 最多保留30个备份
-		MaxAge:     logMaxAge,     // days
-		Compress:   true,          // 是否压缩 disabled by default
-		LocalTime:  true,
-	}
 	minLevel := zapcore.Level(conf.Level)
 	highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		result := lvl >= minLevel && lvl >= zapcore.ErrorLevel
@@ -50,44 +36,55 @@ func New(lc fx.Lifecycle) *zap.Logger {
 		result := lvl >= minLevel && lvl < zapcore.ErrorLevel
 		return result
 	})
-
-	// 错误日志单独写一份文件
-	hook_err := &lumberjack.Logger{
-		Filename:   errFile,       // 日志文件路径
-		MaxSize:    logMaxSize,    // 最大日志大小（Mb级别）
-		MaxBackups: logMaxBackups, // 最多保留30个备份
-		MaxAge:     logMaxAge,     // days
-		Compress:   true,          // 是否压缩 disabled by default
-		LocalTime:  true,
-	}
-	fileError := zapcore.AddSync(hook_err)
-
-	fileDebugging := zapcore.AddSync(hook)
-	fileErrors := zapcore.AddSync(hook)
-
+	cores := make([]zapcore.Core, 0, 10)
 	consoleDebugging := zapcore.Lock(os.Stdout)
 	consoleErrors := zapcore.Lock(os.Stderr)
 	fileCfg := zap.NewProductionEncoderConfig()
 	consoleCfg := zap.NewProductionEncoderConfig()
-
-	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
-	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
-	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
-	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
 
 	if common.Dev {
 		fileCfg = zap.NewDevelopmentEncoderConfig()
 		consoleCfg = zap.NewDevelopmentEncoderConfig()
 		consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
-
-	core := zapcore.NewTee(
+	fileCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
+	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
+	consoleCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000000")
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
+	cores = append(cores,
 		zapcore.NewCore(consoleEncoder, consoleErrors, highPriority),
-		zapcore.NewCore(fileEncoder, fileErrors, highPriority),
-		zapcore.NewCore(fileEncoder, fileError, highPriority),
 		zapcore.NewCore(consoleEncoder, consoleDebugging, lowPriority),
-		zapcore.NewCore(fileEncoder, fileDebugging, lowPriority),
 	)
+	if conf.IsLogFile {
+		debugFile, errFile := getLogFilePath(conf.Path)
+		debugHook := &lumberjack.Logger{
+			Filename:   debugFile,
+			MaxSize:    logMaxSize,
+			MaxBackups: logMaxBackups,
+			MaxAge:     logMaxAge,
+			Compress:   true,
+			LocalTime:  true,
+		}
+		errHook := &lumberjack.Logger{
+			Filename:   errFile,
+			MaxSize:    logMaxSize,
+			MaxBackups: logMaxBackups,
+			MaxAge:     logMaxAge,
+			Compress:   true,
+			LocalTime:  true,
+		}
+		fileAllLevels := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+			return lvl >= minLevel
+		})
+		debugSync := zapcore.AddSync(debugHook)
+		errSync := zapcore.AddSync(errHook)
+		cores = append(cores,
+			zapcore.NewCore(fileEncoder, debugSync, fileAllLevels),
+			zapcore.NewCore(fileEncoder, errSync, highPriority),
+		)
+	}
+
+	core := zapcore.NewTee(cores...)
 
 	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
 	if len(conf.ServiceName) > 0 {
@@ -125,11 +122,5 @@ func getLogFilePath(currentPath string) (string, string) {
 
 // 创建不存在的目录
 func makeDir(path string) error {
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return os.Mkdir(path, os.ModePerm)
-		}
-	}
-	return nil
+	return os.MkdirAll(path, os.ModePerm)
 }

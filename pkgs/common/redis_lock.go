@@ -23,13 +23,13 @@ func InjectRedis(redisC redis.UniversalClient) {
 }
 
 func Lock(key string, options ...redsync.Option) (func() error, error) {
-	if len(options) < 1 {
-		options = []redsync.Option{
-			redsync.WithGenValueFunc(GenNanoID),
-			redsync.WithExpiry(redisLockTimeout),
-		}
-	}
-	lock := redisSync.NewMutex(key, options...)
+	merged := make([]redsync.Option, 0, len(options)+2)
+	merged = append(merged,
+		redsync.WithGenValueFunc(GenNanoID),
+		redsync.WithExpiry(redisLockTimeout),
+	)
+	merged = append(merged, options...)
+	lock := redisSync.NewMutex(key, merged...)
 	err := lock.Lock()
 	if err != nil {
 		return nil, err

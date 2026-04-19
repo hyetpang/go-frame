@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -23,24 +25,23 @@ import (
 )
 
 // 不使用服务发现
-func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) *grpc.Server {
-	s, lis, conf := newServer(zapLog)
+func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.Server, error) {
+	s, lis, conf, err := newServer(zapLog)
+	if err != nil {
+		return nil, err
+	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			// 开始处理
-			err := make(chan error, 1)
+			errCh := make(chan error, 1)
 			go func() {
 				if e := s.Serve(lis); e != nil {
-					logs.Error("grpc监听出错", zap.Error(e))
-					err <- e
+					errCh <- e
 				}
 			}()
 			select {
-			case e := <-err:
-				logs.Fatal("启动grpc serve出错", zap.Error(e))
-				return e
+			case e := <-errCh:
+				return fmt.Errorf("启动grpc serve出错: %w", e)
 			case <-ctx.Done():
-				logs.Fatal("启动grpc serve超时", zap.Error(ctx.Err()))
 				return ctx.Err()
 			case <-time.After(time.Second):
 				for serviceName, serviceInfo := range s.GetServiceInfo() {
@@ -55,26 +56,23 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) *grpc.Server {
 			return nil
 		},
 	})
-	return s
+	return s, nil
 }
 
 // 不使用服务发现
-func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) *grpc.ClientConn {
+func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.ClientConn, error) {
 	conf := newConfig()
 	if len(conf.Address) < 1 {
-		// 监听地址没填
-		logs.Error("grpc配置监听地址必填")
+		return nil, errors.New("grpc客户端必须配置监听地址")
 	}
 	return newClient(conf.Address, lc, zapLog, nil)
 }
 
-func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config) {
+func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config, error) {
 	conf := newConfig()
 	if len(conf.Address) < 1 {
-		// 监听地址没填
-		logs.Error("grpc监听地址必填")
+		return nil, nil, nil, errors.New("grpc监听地址必填")
 	}
-	// 创建grpc server
 	s := grpc.NewServer(grpc.UnaryInterceptor(
 		grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(),
@@ -97,20 +95,18 @@ func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config) {
 			Time:                  time.Second * 60,
 			Timeout:               time.Second * 20,
 		}))
-	// 监听端口
 	lis, err := net.Listen("tcp", conf.Address)
 	if err != nil {
-		logs.Fatal("failed to listen: %v", zap.Error(err))
+		return nil, nil, nil, fmt.Errorf("监听地址出错 %s: %w", conf.Address, err)
 	}
-	// 注册服务
 	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
-	return s, lis, conf
+	return s, lis, conf, nil
 }
 
-func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder) *grpc.ClientConn {
-	options := make([]grpc.DialOption, 0, 10)
-	options = append(options, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), // 轮询负载均衡,https://github.com/grpc/grpc-go/blob/master/examples/features/load_balancing/client/main.go
+func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder) (*grpc.ClientConn, error) {
+	options := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                time.Second * 60,
 			Timeout:             time.Second * 20,
@@ -125,16 +121,17 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 			grpc_opentracing.UnaryClientInterceptor(),
 			grpc_prometheus.UnaryClientInterceptor,
 			grpc_zap.UnaryClientInterceptor(zapLog, grpc_zap.WithLevels(grpc_zap.DefaultClientCodeToLevel)),
-		))
+		),
+	}
 	if grpcResolver != nil {
 		options = append(options, grpc.WithResolvers(grpcResolver))
 	}
-	conn, err := grpc.Dial(addr, options...)
+	conn, err := grpc.NewClient(addr, options...)
 	if err != nil {
-		logs.Fatal("创建连接出错", zap.Error(err))
+		return nil, fmt.Errorf("创建grpc连接出错: %w", err)
 	}
 	lc.Append(fx.StopHook(func() error {
 		return conn.Close()
 	}))
-	return conn
+	return conn, nil
 }

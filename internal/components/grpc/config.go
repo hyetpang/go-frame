@@ -19,7 +19,7 @@ func newConfig() *config {
 	conf := new(config)
 	err := viper.UnmarshalKey("grpc", &conf)
 	if err != nil {
-		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("grpc配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
 	}
 	common.MustValidate(conf)
 	if len(conf.ServicePrefix) <= 0 {

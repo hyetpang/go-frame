@@ -50,21 +50,17 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			err = asyncProducer.Close()
-			if err != nil {
-				logs.Error("关闭kafka异步producer出错", zap.Error(err))
+			if e := asyncProducer.Close(); e != nil {
+				logs.Error("关闭kafka异步producer出错", zap.Error(e))
 			}
-			err = syncProducer.Close()
-			if err != nil {
-				logs.Error("关闭kafka同步producer出错", zap.Error(err))
+			if e := syncProducer.Close(); e != nil {
+				logs.Error("关闭kafka同步producer出错", zap.Error(e))
 			}
-			err = consumer.Close()
-			if err != nil {
-				logs.Error("关闭kafka consumer出错", zap.Error(err))
+			if e := consumer.Close(); e != nil {
+				logs.Error("关闭kafka consumer出错", zap.Error(e))
 			}
-			err = client.Close()
-			if err != nil {
-				logs.Error("关闭kafka client出错", zap.Error(err))
+			if e := client.Close(); e != nil {
+				logs.Error("关闭kafka client出错", zap.Error(e))
 			}
 			return nil
 		},

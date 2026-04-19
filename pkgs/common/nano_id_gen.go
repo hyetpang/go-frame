@@ -2,7 +2,6 @@ package common
 
 import (
 	"errors"
-	"math/rand"
 	"strconv"
 	"time"
 
@@ -25,10 +24,8 @@ func GenNanoID() (string, error) {
 func GenID() string {
 	nanoId, err := GenNanoID()
 	if err != nil {
-		logs.Error("zap nanoid生成出错", zap.Error(err))
-		unixNano := time.Now().Unix()
-		r := rand.New(rand.NewSource(unixNano)).Int63n((50))
-		nanoId = strconv.Itoa(int(unixNano + r))
+		logs.Error("nanoid生成出错", zap.Error(err))
+		return strconv.FormatInt(time.Now().UnixNano(), 10)
 	}
 	return nanoId
 }

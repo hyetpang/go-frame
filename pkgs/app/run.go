@@ -40,13 +40,10 @@ func run(opt ...options.Option) {
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 打印版本
 	ops.FxOptions = append(ops.FxOptions, fx.Invoke(printVersion))
-	var isDev bool // 这个参数用来控制在本地开发的时候不用平滑重启，直接启动，避免打断点不生效，无法调试的问题
-	if viper.GetString("server.run_mode") == common.DevMode || viper.GetString("server.run_mode") == common.TestMode {
-		if viper.GetString("server.run_mode") == common.DevMode {
-			isDev = true
-		}
-	}
-	common.Dev = viper.GetString("server.run_mode") == common.DevMode
+	// isDev 用来控制在本地开发时不使用平滑重启，方便断点调试
+	runMode := viper.GetString("server.run_mode")
+	isDev := runMode == common.DevMode
+	common.Dev = isDev
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
 	if ops.UseGraceRestart && !isDev {

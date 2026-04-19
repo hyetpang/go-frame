@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,73 +15,68 @@ import (
 )
 
 // 使用etcd作为服务发现
-func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) *grpc.Server {
-	s, lis, conf := newServer(zapLog)
+func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) (*grpc.Server, error) {
+	s, lis, conf, err := newServer(zapLog)
+	if err != nil {
+		return nil, err
+	}
 	serviceNamePrefix := conf.ServicePrefix
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			// 开始处理
-			err := make(chan error, 1)
+			errCh := make(chan error, 1)
 			go func() {
 				if e := s.Serve(lis); e != nil {
-					logs.Error("grpc监听出错", zap.Error(e))
-					err <- e
+					errCh <- e
 				}
 			}()
 			select {
-			case e := <-err:
-				logs.Fatal("启动grpc serve出错", zap.Error(e))
-				return e
+			case e := <-errCh:
+				return fmt.Errorf("启动grpc serve出错: %w", e)
 			case <-ctx.Done():
-				logs.Fatal("启动grpc serve超时", zap.Error(ctx.Err()))
 				return ctx.Err()
 			case <-time.After(time.Second):
-				if len(conf.ServiceNames) > 0 {
-					for _, serviceName := range conf.ServiceNames {
-						// 服务注册
-						err := etcdRegisterService(context.TODO(), serviceNamePrefix, serviceName, conf.Address, etcdClient)
-						if err != nil {
-							logs.Fatal("注册服务出错", zap.Error(err))
-						}
-						logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
+				serviceNames := conf.ServiceNames
+				if len(serviceNames) == 0 {
+					serviceNames = make([]string, 0, len(s.GetServiceInfo()))
+					for name := range s.GetServiceInfo() {
+						serviceNames = append(serviceNames, name)
 					}
-				} else {
-					for serviceName := range s.GetServiceInfo() {
-						// 服务注册
-						err := etcdRegisterService(context.TODO(), serviceNamePrefix, serviceName, conf.Address, etcdClient)
-						if err != nil {
-							logs.Fatal("注册服务出错", zap.Error(err))
-						}
-						logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
+				}
+				for _, serviceName := range serviceNames {
+					if err := etcdRegisterService(context.TODO(), serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
+						return fmt.Errorf("注册服务出错 %s: %w", serviceName, err)
 					}
+					logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
 				}
 				logs.Debug("grpc start success", zap.String("address", conf.Address))
 				return nil
 			}
 		},
 		OnStop: func(ctx context.Context) error {
-			// 关闭服务
 			s.GracefulStop()
 			return nil
 		},
 	})
-	return s
+	return s, nil
 }
 
 // 使用etcd作为服务发现
-func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) map[string]*grpc.ClientConn {
+func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) (map[string]*grpc.ClientConn, error) {
 	conf := newConfig()
 	if len(conf.ServiceNames) < 1 {
-		logs.Fatal("grpc client 必须配置一个服务名字!")
+		return nil, errors.New("grpc client 必须配置一个服务名字")
 	}
 	etcdResolver, err := resolver.NewBuilder(etcdClient)
 	if err != nil {
-		logs.Fatal("创建etcd服务解析器对象出错", zap.Error(err))
+		return nil, fmt.Errorf("创建etcd服务解析器对象出错: %w", err)
 	}
 	clients := make(map[string]*grpc.ClientConn, len(conf.ServiceNames))
 	for _, serviceName := range conf.ServiceNames {
-		conn := newClient(fmt.Sprintf("%s:///%s/%s", etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
+		conn, err := newClient(fmt.Sprintf("%s:///%s/%s", etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
+		if err != nil {
+			return nil, fmt.Errorf("创建grpc客户端 %s 失败: %w", serviceName, err)
+		}
 		clients[serviceName] = conn
 	}
-	return clients
+	return clients, nil
 }

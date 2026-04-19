@@ -1,9 +1,3 @@
-/*
- * @Date: 2022-04-24 09:56:04
- * @LastEditTime: 2022-04-29 18:32:17
- * @FilePath: /github.com/hyetpang/go-frame/pkgs/options/options.go
- */
-
 package options
 
 import (
@@ -39,18 +33,9 @@ func WithInvokes(Invokes ...any) Option {
 	}
 }
 
-// 一次注册单个fx.Option
+// 注册 fx.Option，可一次传入多个
 func WithFxOption(fxOptions ...fx.Option) Option {
 	return func(o *Options) {
 		o.FxOptions = append(o.FxOptions, fxOptions...)
-	}
-}
-
-// 一次注册多个fx.Option
-func WithFxOptions(fxOptions ...[]fx.Option) Option {
-	return func(o *Options) {
-		for _, op := range fxOptions {
-			o.FxOptions = append(o.FxOptions, op...)
-		}
 	}
 }

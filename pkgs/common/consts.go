@@ -1,8 +1,3 @@
-/*
- * @Date: 2022-04-30 10:34:56
- * @LastEditTime: 2022-04-30 19:47:21
- * @FilePath: \go-frame\pkgs\common\consts.go
- */
 package common
 
 import "time"
