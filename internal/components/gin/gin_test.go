@@ -1,11 +1,14 @@
 package gin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
+	"go.uber.org/fx/fxtest"
 	"go.uber.org/zap"
 )
 
@@ -63,5 +66,38 @@ func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
 	router.ServeHTTP(rsp, req)
 	if rsp.Code != http.StatusOK {
 		t.Fatalf("authenticated pprof status = %d, want %d", rsp.Code, http.StatusOK)
+	}
+}
+
+func TestNewStartsWithoutFixedOneSecondDelay(t *testing.T) {
+	resetTestConfig(t)
+	setHTTPConfig(map[string]any{
+		"addr":       "127.0.0.1:0",
+		"is_metrics": false,
+		"is_doc":     false,
+		"is_pprof":   false,
+		"is_prod":    true,
+	})
+	lc := fxtest.NewLifecycle(t)
+
+	_, err := New(zap.NewNop(), lc)
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	if err := lc.Start(ctx); err != nil {
+		t.Fatalf("lifecycle start returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer stopCancel()
+		_ = lc.Stop(stopCtx)
+	})
+
+	if elapsed := time.Since(start); elapsed >= 500*time.Millisecond {
+		t.Fatalf("lifecycle start took %s, expected no fixed one second delay", elapsed)
 	}
 }

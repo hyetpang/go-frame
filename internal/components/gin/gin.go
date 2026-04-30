@@ -43,27 +43,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) (gin.IRouter, error) {
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			errC := make(chan error, 1)
-			go func() {
-				if err := srv.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errC <- err
-				}
-			}()
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case err := <-errC:
-				return err
-			case <-time.After(time.Second):
-				if !conf.IsProd {
-					for _, r := range router.Routes() {
-						logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
-					}
-				}
-				logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
-				return nil
-			}
+			return startHTTPServer(ctx, srv, lis, router, conf.IsProd)
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -93,21 +73,7 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			errC := make(chan error, 1)
-			go func() {
-				if err := srv.Serve(state.Listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errC <- err
-				}
-			}()
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case err := <-errC:
-				return err
-			case <-time.After(time.Second):
-				return nil
-			}
+			return startHTTPServer(ctx, srv, state.Listener, nil, true)
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -118,6 +84,30 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 		},
 	})
 	return router, nil
+}
+
+func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, router *gin.Engine, isProd bool) error {
+	errC := make(chan error, 1)
+	go func() {
+		if err := srv.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errC <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errC:
+		return err
+	default:
+		if router != nil && !isProd {
+			for _, r := range router.Routes() {
+				logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+			}
+		}
+		logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
+		return nil
+	}
 }
 
 func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
