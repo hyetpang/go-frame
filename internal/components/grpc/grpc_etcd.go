@@ -15,8 +15,8 @@ import (
 )
 
 // 使用etcd作为服务发现
-func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) (*grpc.Server, error) {
-	s, lis, conf, err := newServer(zapLog)
+func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client, conf *config) (*grpc.Server, error) {
+	s, lis, conf, err := newServer(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +66,8 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 }
 
 // 使用etcd作为服务发现
-func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) (map[string]*grpc.ClientConn, error) {
-	conf, err := newConfig()
+func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client, conf *config) (map[string]*grpc.ClientConn, error) {
+	conf, err := newConfig(conf)
 	if err != nil {
 		return nil, err
 	}

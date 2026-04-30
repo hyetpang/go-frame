@@ -5,17 +5,11 @@ import (
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/interfaces"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
 
 // 错误日志通知返回具体实例
-func New(lc fx.Lifecycle) (interfaces.LogNoticeInterface, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("log_notice", &conf)
-	if err != nil {
-		return nil, fmt.Errorf("log_notice配置Unmarshal到对象出错: %w", err)
-	}
+func New(lc fx.Lifecycle, conf *config) (interfaces.LogNoticeInterface, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("log_notice配置验证不通过: %w", err)
 	}

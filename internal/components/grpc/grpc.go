@@ -25,8 +25,8 @@ import (
 )
 
 // 不使用服务发现
-func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.Server, error) {
-	s, lis, conf, err := newServer(zapLog)
+func NewServer(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.Server, error) {
+	s, lis, conf, err := newServer(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +60,8 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.Server, error) {
 }
 
 // 不使用服务发现
-func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.ClientConn, error) {
-	conf, err := newConfig()
+func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.ClientConn, error) {
+	conf, err := newConfig(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +71,8 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.ClientConn, error) {
 	return newClient(conf.Address, lc, zapLog, nil)
 }
 
-func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config, error) {
-	conf, err := newConfig()
+func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *config, error) {
+	conf, err := newConfig(conf)
 	if err != nil {
 		return nil, nil, nil, err
 	}

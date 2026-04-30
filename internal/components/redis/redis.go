@@ -8,17 +8,11 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func New(lc fx.Lifecycle) (redis.UniversalClient, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("redis", conf)
-	if err != nil {
-		return nil, fmt.Errorf("redis配置Unmarshal到对象出错: %w", err)
-	}
+func New(lc fx.Lifecycle, conf *config) (redis.UniversalClient, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("redis配置验证不通过: %w", err)
 	}

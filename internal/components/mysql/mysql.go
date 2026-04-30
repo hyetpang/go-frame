@@ -6,7 +6,6 @@ import (
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
@@ -16,21 +15,19 @@ import (
 	"moul.io/zapgorm2"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) (map[string]*gorm.DB, error) {
-	configs := make([]*config, 0, 3)
-	err := viper.UnmarshalKey("mysql", &configs)
-	if err != nil {
-		return nil, fmt.Errorf("mysql配置Unmarshal到对象出错: %w", err)
-	}
+func New(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (map[string]*gorm.DB, error) {
 	if len(configs) < 1 {
 		return nil, fmt.Errorf("必须配置一个数据库")
 	}
-	for _, conf := range configs {
+	configPtrs := make([]*config, 0, len(configs))
+	for i := range configs {
+		conf := &configs[i]
 		if err := common.Validate(conf); err != nil {
 			return nil, fmt.Errorf("mysql配置验证不通过 name=%s: %w", conf.Name, err)
 		}
+		configPtrs = append(configPtrs, conf)
 	}
-	dbs, err := newMysqls(configs, zapLog)
+	dbs, err := newMysqls(configPtrs, zapLog)
 	if err != nil {
 		return nil, err
 	}
@@ -46,11 +43,10 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) (map[string]*gorm.DB, error) {
 	return dbs, nil
 }
 
-func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) (*gorm.DB, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("mysql", &conf)
+func NewOne(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (*gorm.DB, error) {
+	conf, err := pickOneConfig(configs)
 	if err != nil {
-		return nil, fmt.Errorf("mysql配置Unmarshal到对象出错: %w", err)
+		return nil, err
 	}
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("mysql配置验证不通过: %w", err)
@@ -67,6 +63,18 @@ func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) (*gorm.DB, error) {
 		}
 	}))
 	return db, nil
+}
+
+func pickOneConfig(configs []config) (*config, error) {
+	if len(configs) < 1 {
+		return nil, fmt.Errorf("必须配置一个数据库")
+	}
+	for i := range configs {
+		if configs[i].Name == common.DefaultDb {
+			return &configs[i], nil
+		}
+	}
+	return &configs[0], nil
 }
 
 func newMysqls(configs []*config, zapLog *zap.Logger) (map[string]*gorm.DB, error) {

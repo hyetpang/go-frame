@@ -4,10 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/jpillora/overseer"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -25,9 +23,6 @@ func (app *App) runWith(state overseer.State) {
 }
 
 func (app *App) run() {
-	if common.Dev {
-		viper.Debug() // 仅开发模式打印配置项
-	}
 	application := fx.New(app.options...)
 	if app.isStart {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)

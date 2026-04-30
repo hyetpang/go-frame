@@ -7,16 +7,14 @@ import (
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
-	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) (*clientv3.Client, error) {
-	conf, err := newConfig()
-	if err != nil {
-		return nil, err
+func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (*clientv3.Client, error) {
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("etcd配置验证不通过: %w", err)
 	}
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            strings.Split(conf.Addresses, ","),
@@ -39,16 +37,4 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) (*clientv3.Client, error) {
 		}
 	}))
 	return cli, nil
-}
-
-func newConfig() (*config, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("etcd", &conf)
-	if err != nil {
-		return nil, fmt.Errorf("etcd配置Unmarshal到对象出错: %w", err)
-	}
-	if err := common.Validate(conf); err != nil {
-		return nil, fmt.Errorf("etcd配置验证不通过: %w", err)
-	}
-	return conf, nil
 }

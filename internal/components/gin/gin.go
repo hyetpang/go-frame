@@ -16,15 +16,14 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/jpillora/overseer"
 	"github.com/penglongli/gin-metrics/ginmetrics"
-	"github.com/spf13/viper"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) (gin.IRouter, error) {
-	router, conf, err := newGin(zapLog)
+func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
+	router, conf, err := newGin(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +55,11 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) (gin.IRouter, error) {
 	return router, nil
 }
 
-func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle) (gin.IRouter, error) {
+func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
 	if state.Listener == nil {
 		return nil, errors.New("网络监听器对象(overseer.State.Listener)没有初始化")
 	}
-	router, _, err := newGin(zapLog)
+	router, _, err := newGin(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +109,7 @@ func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, ro
 	}
 }
 
-func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
-	conf := new(config)
-	if err := viper.UnmarshalKey("http", conf); err != nil {
-		return nil, nil, fmt.Errorf("http配置Unmarshal到对象出错: %w", err)
-	}
+func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, nil, fmt.Errorf("http配置验证不通过: %w", err)
 	}

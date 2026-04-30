@@ -7,48 +7,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"go.uber.org/fx/fxtest"
 	"go.uber.org/zap"
 )
 
-func resetTestConfig(t *testing.T) {
-	t.Helper()
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-}
-
-func setHTTPConfig(values map[string]any) {
-	viper.Set("http", values)
-}
-
 func TestNewGinReturnsErrorWhenPprofHasNoAuth(t *testing.T) {
-	resetTestConfig(t)
-	setHTTPConfig(map[string]any{
-		"addr":       "127.0.0.1:0",
-		"is_pprof":   true,
-		"is_metrics": false,
-		"is_doc":     false,
-	})
+	conf := &config{
+		Addr:    "127.0.0.1:0",
+		IsPprof: true,
+	}
 
-	_, _, err := newGin(zap.NewNop())
+	_, _, err := newGin(zap.NewNop(), conf)
 	if err == nil {
 		t.Fatal("expected pprof without auth to return error")
 	}
 }
 
 func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
-	resetTestConfig(t)
-	setHTTPConfig(map[string]any{
-		"addr":           "127.0.0.1:0",
-		"is_pprof":       true,
-		"pprof_username": "admin",
-		"pprof_password": "secret",
-		"is_metrics":     false,
-		"is_doc":         false,
-	})
+	conf := &config{
+		Addr:          "127.0.0.1:0",
+		IsPprof:       true,
+		PprofUsername: "admin",
+		PprofPassword: "secret",
+	}
 
-	router, _, err := newGin(zap.NewNop())
+	router, _, err := newGin(zap.NewNop(), conf)
 	if err != nil {
 		t.Fatalf("newGin returned error: %v", err)
 	}
@@ -70,17 +53,13 @@ func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
 }
 
 func TestNewStartsWithoutFixedOneSecondDelay(t *testing.T) {
-	resetTestConfig(t)
-	setHTTPConfig(map[string]any{
-		"addr":       "127.0.0.1:0",
-		"is_metrics": false,
-		"is_doc":     false,
-		"is_pprof":   false,
-		"is_prod":    true,
-	})
+	conf := &config{
+		Addr:   "127.0.0.1:0",
+		IsProd: true,
+	}
 	lc := fxtest.NewLifecycle(t)
 
-	_, err := New(zap.NewNop(), lc)
+	_, err := New(zap.NewNop(), lc, conf)
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}

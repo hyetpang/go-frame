@@ -9,17 +9,11 @@ import (
 	"github.com/hyetpang/go-frame/internal/adapter/log"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProducer, sarama.SyncProducer, sarama.Consumer, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("kafka", &conf)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("kafka配置Unmarshal到对象出错: %w", err)
-	}
+func New(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (sarama.Client, sarama.AsyncProducer, sarama.SyncProducer, sarama.Consumer, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("kafka配置验证不通过: %w", err)
 	}
@@ -28,8 +22,8 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	config.Producer.RequiredAcks = sarama.WaitForAll          // 发送完数据需要leader和follow都确认
 	config.Producer.Partitioner = sarama.NewRandomPartitioner // 新选出一个partition
 	config.Producer.Return.Successes = true
-	if len(conf.ClientId) > 0 {
-		config.ClientID = conf.ClientId
+	if len(conf.ClientID) > 0 {
+		config.ClientID = conf.ClientID
 	}
 	// 连接kafka
 	client, err := sarama.NewClient(strings.Split(conf.Addr, ","), config)

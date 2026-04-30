@@ -9,12 +9,12 @@ import (
 	adapterLog "github.com/hyetpang/go-frame/internal/adapter/log"
 	"github.com/hyetpang/go-frame/internal/components/gin"
 	"github.com/hyetpang/go-frame/internal/components/logs"
+	frameconfig "github.com/hyetpang/go-frame/internal/config"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	log "github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/hyetpang/go-frame/pkgs/options"
 	"github.com/jpillora/overseer"
 	"github.com/jpillora/overseer/fetcher"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -32,22 +32,25 @@ func run(opt ...options.Option) {
 	for _, op := range opt {
 		op(ops)
 	}
-	// 设置配置文件
-	viper.SetConfigFile(ops.ConfigFile)
-	viper.SetConfigType("toml")
-	common.Panic(viper.ReadInConfig())
+	conf, err := frameconfig.Load(ops.ConfigFile)
+	common.Panic(err)
+	ops.FxOptions = append(ops.FxOptions,
+		fx.Provide(func() *frameconfig.Config { return conf }),
+		fx.Provide(frameconfig.SectionProviders()...),
+	)
 	// 使用zap日志
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 打印版本
 	ops.FxOptions = append(ops.FxOptions, fx.Invoke(printVersion))
 	// isDev 用来控制在本地开发时不使用平滑重启，方便断点调试
-	runMode := viper.GetString("server.run_mode")
+	runMode := conf.Server.RunMode
 	isDev := runMode == common.DevMode
 	common.Dev = isDev
 	var overseerConfig *overseer.Config
 	var httpProvider fx.Option
 	if ops.UseGraceRestart && !isDev {
-		graceRestartConfig := newGraceRestartConfig()
+		graceRestartConfig := &conf.GraceRestart
+		common.Panic(newGraceRestartConfig(graceRestartConfig))
 		overseerConfig = &overseer.Config{
 			// ExecFile:      graceRestartConfig.ExecFile,
 			RestartSignal: syscall.SIGTERM, // 这个重启信号是为了兼容supervisor进程管理器，它默认的终止信号就是TERM

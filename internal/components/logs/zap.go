@@ -6,19 +6,13 @@ import (
 	"path/filepath"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
-	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func New(lc fx.Lifecycle) (*zap.Logger, error) {
-	conf := new(config)
-	err := viper.UnmarshalKey("zap_log", &conf)
-	if err != nil {
-		return nil, fmt.Errorf("zap_log配置Unmarshal到对象出错: %w", err)
-	}
+func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("zap_log配置验证不通过: %w", err)
 	}
