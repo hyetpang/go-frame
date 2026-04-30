@@ -1,0 +1,69 @@
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":8081"
+is_doc = false
+doc_path = "/swagger/*any"
+is_pprof = false
+pprof_prefix = ""
+pprof_username = ""
+pprof_password = ""
+is_metrics = true
+metrics_path = "/metrics"
+is_prod = true
+
+[graceful_restart]
+http_addr = ":8081"
+exec_file = "/opt/go-frame/app"
+exec_latest_file = "/opt/go-frame/app.latest"
+
+[mysql]
+connect_string = "user:password@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+max_idle_time = 30
+max_life_time = 60
+max_idle_conns = 10
+max_open_conns = 100
+table_prefix = ""
+gorm_log_ignore_record_not_found_error = true
+gorm_log_level = 2
+name = "default"
+
+[redis]
+addr = "127.0.0.1:6379"
+pwd = ""
+db = 1
+
+[log_notice]
+name = "myapp"
+notice_type = 1
+notice = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key"
+limit_window_seconds = 60
+limit_max_keys = 1024
+is_limit_disabled = false
+
+[zap_log]
+path = "/var/log/go-frame"
+service_name = "myapp"
+level = 0
+stacktrace_level = 1
+is_log_file = true
+log_max_size = 128
+log_max_backups = 30
+log_max_age = 7
+
+[grpc]
+address = ""
+service_prefix = "grpc_services"
+service_names = []
+
+[etcd]
+addresses = "127.0.0.1:2379"
+
+[kafka]
+addr = ""
+client_id = "myapp"
+
+[gout]
+debug = false
+timeout = 5

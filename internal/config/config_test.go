@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -133,5 +134,28 @@ func TestConfigDefaultsAreApplied(t *testing.T) {
 	}
 	if conf.LogNotice.LimitWindowSeconds == 0 || conf.LogNotice.LimitMaxKeys == 0 {
 		t.Fatalf("log notice defaults not applied: %+v", conf.LogNotice)
+	}
+}
+
+func TestLoadExampleConfigs(t *testing.T) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to locate test file")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+
+	for _, name := range []string{"app.dev.toml", "app.prod.toml"} {
+		t.Run(name, func(t *testing.T) {
+			conf, err := Load(filepath.Join(repoRoot, "example", "conf", name))
+			if err != nil {
+				t.Fatalf("Load returned error: %v", err)
+			}
+			if conf.HTTP.Addr == "" {
+				t.Fatal("expected http addr in example config")
+			}
+			if conf.ZapLog.LogMaxSize == 0 {
+				t.Fatal("expected zap log defaults or explicit rotation config")
+			}
+		})
 	}
 }
