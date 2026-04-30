@@ -13,11 +13,6 @@ is_metrics = true
 metrics_path = "/metrics"
 is_prod = true
 
-[graceful_restart]
-http_addr = ":8081"
-exec_file = "/opt/go-frame/app"
-exec_latest_file = "/opt/go-frame/app.latest"
-
 [mysql]
 connect_string = "user:password@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 max_idle_time = 30

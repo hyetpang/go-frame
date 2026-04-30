@@ -9,7 +9,6 @@ import (
 type Config struct {
 	Server         Server
 	HTTP           HTTP
-	GraceRestart   GraceRestart
 	MySQL          []MySQL
 	Redis          Redis
 	Mail           Mail
@@ -38,12 +37,6 @@ type HTTP struct {
 	IsPprof       bool   `mapstructure:"is_pprof"`
 	IsMetrics     bool   `mapstructure:"is_metrics"`
 	IsProd        bool   `mapstructure:"is_prod"`
-}
-
-type GraceRestart struct {
-	HttpAddr       string `mapstructure:"http_addr" validate:"required"`
-	ExecFile       string `mapstructure:"exec_file" validate:"required"`
-	ExecLatestFile string `mapstructure:"exec_latest_file" validate:"required"`
 }
 
 type MySQL struct {
@@ -143,9 +136,6 @@ func Load(configFile string) (*Config, error) {
 	if err := v.UnmarshalKey("http", &conf.HTTP); err != nil {
 		return nil, fmt.Errorf("http配置Unmarshal到对象出错: %w", err)
 	}
-	if err := v.UnmarshalKey("graceful_restart", &conf.GraceRestart); err != nil {
-		return nil, fmt.Errorf("graceful_restart配置Unmarshal到对象出错: %w", err)
-	}
 	if err := unmarshalMySQL(v, conf); err != nil {
 		return nil, err
 	}
@@ -203,7 +193,6 @@ func SectionProviders() []any {
 	return []any{
 		provideServer,
 		provideHTTP,
-		provideGraceRestart,
 		provideMySQL,
 		provideRedis,
 		provideLogNotice,
@@ -247,14 +236,13 @@ func (conf *LogNotice) applyDefaults() {
 	}
 }
 
-func provideServer(conf *Config) *Server             { return &conf.Server }
-func provideHTTP(conf *Config) *HTTP                 { return &conf.HTTP }
-func provideGraceRestart(conf *Config) *GraceRestart { return &conf.GraceRestart }
-func provideMySQL(conf *Config) []MySQL              { return conf.MySQL }
-func provideRedis(conf *Config) *Redis               { return &conf.Redis }
-func provideLogNotice(conf *Config) *LogNotice       { return &conf.LogNotice }
-func provideZapLog(conf *Config) *ZapLog             { return &conf.ZapLog }
-func provideGRPC(conf *Config) *GRPC                 { return &conf.GRPC }
-func provideEtcd(conf *Config) *Etcd                 { return &conf.Etcd }
-func provideKafka(conf *Config) *Kafka               { return &conf.Kafka }
-func provideGout(conf *Config) *Gout                 { return &conf.Gout }
+func provideServer(conf *Config) *Server       { return &conf.Server }
+func provideHTTP(conf *Config) *HTTP           { return &conf.HTTP }
+func provideMySQL(conf *Config) []MySQL        { return conf.MySQL }
+func provideRedis(conf *Config) *Redis         { return &conf.Redis }
+func provideLogNotice(conf *Config) *LogNotice { return &conf.LogNotice }
+func provideZapLog(conf *Config) *ZapLog       { return &conf.ZapLog }
+func provideGRPC(conf *Config) *GRPC           { return &conf.GRPC }
+func provideEtcd(conf *Config) *Etcd           { return &conf.Etcd }
+func provideKafka(conf *Config) *Kafka         { return &conf.Kafka }
+func provideGout(conf *Config) *Gout           { return &conf.Gout }

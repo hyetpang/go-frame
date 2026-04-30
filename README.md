@@ -128,28 +128,6 @@ app.Run(options.WithLogNotice())
 - metrics 可以保留开启，但建议只暴露给 Prometheus 所在网络。
 - `log_notice.notice`、数据库密码、Redis 密码不要提交真实值。
 
-## 平滑重启
-
-开启平滑重启：
-
-```go
-app.Run(
-	options.WithHttp(),
-	options.WithGraceRestart(),
-)
-```
-
-配置段：
-
-```toml
-[graceful_restart]
-http_addr = ":8081"
-exec_file = "/path/to/current/app"
-exec_latest_file = "/path/to/latest/app"
-```
-
-开发环境 `server.run_mode = "dev"` 时会跳过平滑重启，方便断点调试。
-
 ## 开发工具
 
 ```bash

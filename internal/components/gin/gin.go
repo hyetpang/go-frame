@@ -14,7 +14,6 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/base"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
-	"github.com/jpillora/overseer"
 	"github.com/penglongli/gin-metrics/ginmetrics"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -43,36 +42,6 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			return startHTTPServer(ctx, srv, lis, router, conf.IsProd)
-		},
-		OnStop: func(ctx context.Context) error {
-			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				return err
-			}
-			logs.Info("http服务器已关闭...")
-			return nil
-		},
-	})
-	return router, nil
-}
-
-func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
-	if state.Listener == nil {
-		return nil, errors.New("网络监听器对象(overseer.State.Listener)没有初始化")
-	}
-	router, _, err := newGin(zapLog, conf)
-	if err != nil {
-		return nil, err
-	}
-	srv := &http.Server{
-		Handler:           router,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       120 * time.Second,
-	}
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			return startHTTPServer(ctx, srv, state.Listener, nil, true)
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {

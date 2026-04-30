@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/logs"
-	"github.com/jpillora/overseer"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -13,13 +12,6 @@ import (
 type App struct {
 	options []fx.Option
 	isStart bool // true=>运行后马上退出
-}
-
-func (app *App) runWith(state overseer.State) {
-	app.options = append(app.options, fx.Provide(func() overseer.State {
-		return state
-	}))
-	app.run()
 }
 
 func (app *App) run() {

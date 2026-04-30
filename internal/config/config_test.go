@@ -121,6 +121,12 @@ func TestSectionProvidersExposeConfiguredSections(t *testing.T) {
 	}
 }
 
+func TestSectionProvidersDoNotExposeGraceRestart(t *testing.T) {
+	if got, want := len(SectionProviders()), 10; got != want {
+		t.Fatalf("section provider count = %d, want %d without graceful restart provider", got, want)
+	}
+}
+
 func TestConfigDefaultsAreApplied(t *testing.T) {
 	conf := &Config{}
 

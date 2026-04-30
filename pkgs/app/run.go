@@ -1,10 +1,7 @@
 package app
 
 import (
-	"os"
 	"runtime/debug"
-	"syscall"
-	"time"
 
 	adapterLog "github.com/hyetpang/go-frame/internal/adapter/log"
 	"github.com/hyetpang/go-frame/internal/components/gin"
@@ -13,8 +10,6 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/common"
 	log "github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/hyetpang/go-frame/pkgs/options"
-	"github.com/jpillora/overseer"
-	"github.com/jpillora/overseer/fetcher"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -42,48 +37,18 @@ func run(opt ...options.Option) {
 	ops.FxOptions = append(ops.FxOptions, fx.Provide(logs.New))
 	// 打印版本
 	ops.FxOptions = append(ops.FxOptions, fx.Invoke(printVersion))
-	// isDev 用来控制在本地开发时不使用平滑重启，方便断点调试
 	runMode := conf.Server.RunMode
 	isDev := runMode == common.DevMode
 	common.Dev = isDev
-	var overseerConfig *overseer.Config
-	var httpProvider fx.Option
-	if ops.UseGraceRestart && !isDev {
-		graceRestartConfig := &conf.GraceRestart
-		common.Panic(newGraceRestartConfig(graceRestartConfig))
-		overseerConfig = &overseer.Config{
-			// ExecFile:      graceRestartConfig.ExecFile,
-			RestartSignal: syscall.SIGTERM, // 这个重启信号是为了兼容supervisor进程管理器，它默认的终止信号就是TERM
-			Address:       graceRestartConfig.HttpAddr,
-			Fetcher:       &fetcher.File{Path: graceRestartConfig.ExecLatestFile, Interval: 5 * time.Second},
-			Debug:         true, // display log of overseer actions
-			PreUpgrade: func(tempBinaryPath string) error {
-				log.Info("要更新的文件路径-", zap.String("temp_binary_path", tempBinaryPath))
-				_, err := os.Stat(tempBinaryPath)
-				if err != nil {
-					log.Error("stat temp_binary_path by path err", zap.Error(err))
-				}
-				return err
-			},
-		}
-		httpProvider = fx.Provide(gin.NewWithGraceRestart)
-	} else {
-		httpProvider = fx.Provide(gin.New)
-	}
 	if ops.UseHttp {
-		ops.FxOptions = append(ops.FxOptions, httpProvider)
+		ops.FxOptions = append(ops.FxOptions, fx.Provide(gin.New))
 	}
 	ops.FxOptions = append(ops.FxOptions, fx.WithLogger(adapterLog.NewFxZap))
 	app := &App{
 		options: ops.FxOptions,
 		isStart: ops.IsStart,
 	}
-	if ops.UseGraceRestart && !isDev {
-		overseerConfig.Program = app.runWith
-		overseer.Run(*overseerConfig)
-	} else {
-		app.run()
-	}
+	app.run()
 }
 
 func printVersion(_ *zap.Logger) {
