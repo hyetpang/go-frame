@@ -45,7 +45,7 @@ func newNotice(conf *config, lc fx.Lifecycle) (interfaces.LogNoticeInterface, er
 		conf:     conf,
 		noticeCh: make(chan noticeContent, noticeChanBuffer),
 		done:     make(chan struct{}),
-		limiter:  newNoticeLimiter(noticeLimitWindow, time.Now),
+		limiter:  newNoticeLimiterFromConfig(conf),
 		sender:   sender,
 	}
 	go n.Watch()
@@ -91,7 +91,11 @@ func (notice *notice) watchOnce() (exit bool) {
 		}
 	}()
 	logs.Info("开始watch出错消息...")
-	flushTicker := time.NewTicker(noticeLimitWindow)
+	flushInterval := noticeLimitWindow
+	if notice.limiter != nil {
+		flushInterval = notice.limiter.window
+	}
+	flushTicker := time.NewTicker(flushInterval)
 	defer flushTicker.Stop()
 	for {
 		select {

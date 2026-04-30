@@ -13,6 +13,7 @@ import (
 )
 
 func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
+	applyDefaults(conf)
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("zap_log配置验证不通过: %w", err)
 	}
@@ -58,17 +59,17 @@ func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 		}
 		debugHook := &lumberjack.Logger{
 			Filename:   debugFile,
-			MaxSize:    logMaxSize,
-			MaxBackups: logMaxBackups,
-			MaxAge:     logMaxAge,
+			MaxSize:    conf.LogMaxSize,
+			MaxBackups: conf.LogMaxBackups,
+			MaxAge:     conf.LogMaxAge,
 			Compress:   true,
 			LocalTime:  true,
 		}
 		errHook := &lumberjack.Logger{
 			Filename:   errFile,
-			MaxSize:    logMaxSize,
-			MaxBackups: logMaxBackups,
-			MaxAge:     logMaxAge,
+			MaxSize:    conf.LogMaxSize,
+			MaxBackups: conf.LogMaxBackups,
+			MaxAge:     conf.LogMaxAge,
 			Compress:   true,
 			LocalTime:  true,
 		}
@@ -85,7 +86,7 @@ func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 
 	core := zapcore.NewTee(cores...)
 
-	logger := zap.New(core, zap.AddStacktrace(zap.WarnLevel))
+	logger := zap.New(core, zap.AddStacktrace(stacktraceLevel(conf)))
 	if len(conf.ServiceName) > 0 {
 		logger = logger.WithOptions(zap.Fields(zap.String("service", conf.ServiceName)))
 	}
@@ -96,6 +97,25 @@ func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 		_ = logger.Sync() // 日志同步
 	}))
 	return logger, nil
+}
+
+func applyDefaults(conf *config) {
+	if conf.LogMaxSize == 0 {
+		conf.LogMaxSize = logMaxSize
+	}
+	if conf.LogMaxBackups == 0 {
+		conf.LogMaxBackups = logMaxBackups
+	}
+	if conf.LogMaxAge == 0 {
+		conf.LogMaxAge = logMaxAge
+	}
+	if conf.StacktraceLevel == 0 {
+		conf.StacktraceLevel = 1
+	}
+}
+
+func stacktraceLevel(conf *config) zapcore.Level {
+	return zapcore.Level(conf.StacktraceLevel)
 }
 
 // func customTimeEncoder(time time.Time, encoder zapcore.PrimitiveArrayEncoder) {

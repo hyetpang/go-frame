@@ -58,7 +58,7 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 		},
 		OnStop: func(stopCtx context.Context) error {
 			cancel()
-			s.GracefulStop()
+			gracefulStopServer(stopCtx, s)
 			return nil
 		},
 	})

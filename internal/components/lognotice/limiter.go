@@ -8,6 +8,7 @@ import (
 type noticeLimiter struct {
 	window  time.Duration
 	now     func() time.Time
+	maxKeys int
 	pending map[string]*limitedNotice
 }
 
@@ -21,11 +22,31 @@ func newNoticeLimiter(window time.Duration, now func() time.Time) *noticeLimiter
 	return &noticeLimiter{
 		window:  window,
 		now:     now,
+		maxKeys: 1024,
 		pending: make(map[string]*limitedNotice),
 	}
 }
 
+func newNoticeLimiterFromConfig(conf *config) *noticeLimiter {
+	if conf.IsLimitDisabled {
+		return nil
+	}
+	window := noticeLimitWindow
+	if conf.LimitWindowSeconds > 0 {
+		window = time.Duration(conf.LimitWindowSeconds) * time.Second
+	}
+	limiter := newNoticeLimiter(window, time.Now)
+	if conf.LimitMaxKeys > 0 {
+		limiter.maxKeys = conf.LimitMaxKeys
+	}
+	return limiter
+}
+
 func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg noticeContent) {
+	if limiter == nil {
+		_ = sender.Send(serviceName, url, msg)
+		return
+	}
 	current := limiter.now()
 	limiter.flushExpired(sender, serviceName, url, current)
 
@@ -36,6 +57,9 @@ func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg
 	}
 
 	_ = sender.Send(serviceName, url, msg)
+	if len(limiter.pending) >= limiter.maxKeys {
+		return
+	}
 	limiter.pending[key] = &limitedNotice{
 		content:   msg,
 		expiresAt: current.Add(limiter.window),
@@ -43,6 +67,9 @@ func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg
 }
 
 func (limiter *noticeLimiter) flushExpired(sender sender, serviceName, url string, current time.Time) {
+	if limiter == nil {
+		return
+	}
 	for key, item := range limiter.pending {
 		if current.Before(item.expiresAt) {
 			continue
@@ -53,6 +80,9 @@ func (limiter *noticeLimiter) flushExpired(sender sender, serviceName, url strin
 }
 
 func (limiter *noticeLimiter) flushAll(sender sender, serviceName, url string) {
+	if limiter == nil {
+		return
+	}
 	for key, item := range limiter.pending {
 		limiter.sendSummary(sender, serviceName, url, item)
 		delete(limiter.pending, key)

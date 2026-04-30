@@ -78,17 +78,24 @@ type SMS struct {
 }
 
 type LogNotice struct {
-	Notice     string `mapstructure:"notice" validate:"required"`
-	Name       string `mapstructure:"name" validate:"required"`
-	ChatID     string `mapstructure:"chat_id" validate:"required_if=NoticeType 4"`
-	NoticeType int    `mapstructure:"notice_type" validate:"required,oneof=1 2 3 4"`
+	Notice             string `mapstructure:"notice" validate:"required"`
+	Name               string `mapstructure:"name" validate:"required"`
+	ChatID             string `mapstructure:"chat_id" validate:"required_if=NoticeType 4"`
+	NoticeType         int    `mapstructure:"notice_type" validate:"required,oneof=1 2 3 4"`
+	LimitWindowSeconds int    `mapstructure:"limit_window_seconds"`
+	LimitMaxKeys       int    `mapstructure:"limit_max_keys"`
+	IsLimitDisabled    bool   `mapstructure:"is_limit_disabled"`
 }
 
 type ZapLog struct {
-	Path        string `mapstructure:"path"`
-	ServiceName string `mapstructure:"service_name"`
-	Level       int    `mapstructure:"level" validate:"oneof=-1 0 1 2"`
-	IsLogFile   bool   `mapstructure:"is_log_file"`
+	Path            string `mapstructure:"path"`
+	ServiceName     string `mapstructure:"service_name"`
+	Level           int    `mapstructure:"level" validate:"oneof=-1 0 1 2"`
+	StacktraceLevel int    `mapstructure:"stacktrace_level" validate:"oneof=-1 0 1 2"`
+	LogMaxSize      int    `mapstructure:"log_max_size"`
+	LogMaxBackups   int    `mapstructure:"log_max_backups"`
+	LogMaxAge       int    `mapstructure:"log_max_age"`
+	IsLogFile       bool   `mapstructure:"is_log_file"`
 }
 
 type GRPC struct {
@@ -110,6 +117,16 @@ type Gout struct {
 	Debug   bool `mapstructure:"debug"`
 	Timeout int  `mapstructure:"timeout"`
 }
+
+const (
+	defaultGRPCServicePrefix           = "grpc_services"
+	defaultZapLogMaxSize               = 128
+	defaultZapLogMaxBackups            = 30
+	defaultZapLogMaxAge                = 7
+	defaultZapStacktraceLevel          = 1
+	defaultLogNoticeLimitWindowSeconds = 60
+	defaultLogNoticeLimitMaxKeys       = 1024
+)
 
 func Load(configFile string) (*Config, error) {
 	v := viper.New()
@@ -159,6 +176,7 @@ func Load(configFile string) (*Config, error) {
 	if err := v.UnmarshalKey("gout", &conf.Gout); err != nil {
 		return nil, fmt.Errorf("gout配置Unmarshal到对象出错: %w", err)
 	}
+	conf.applyDefaults()
 	return conf, nil
 }
 
@@ -183,16 +201,60 @@ func unmarshalMySQL(v *viper.Viper, conf *Config) error {
 
 func SectionProviders() []any {
 	return []any{
-		func(conf *Config) *Server { return &conf.Server },
-		func(conf *Config) *HTTP { return &conf.HTTP },
-		func(conf *Config) *GraceRestart { return &conf.GraceRestart },
-		func(conf *Config) []MySQL { return conf.MySQL },
-		func(conf *Config) *Redis { return &conf.Redis },
-		func(conf *Config) *LogNotice { return &conf.LogNotice },
-		func(conf *Config) *ZapLog { return &conf.ZapLog },
-		func(conf *Config) *GRPC { return &conf.GRPC },
-		func(conf *Config) *Etcd { return &conf.Etcd },
-		func(conf *Config) *Kafka { return &conf.Kafka },
-		func(conf *Config) *Gout { return &conf.Gout },
+		provideServer,
+		provideHTTP,
+		provideGraceRestart,
+		provideMySQL,
+		provideRedis,
+		provideLogNotice,
+		provideZapLog,
+		provideGRPC,
+		provideEtcd,
+		provideKafka,
+		provideGout,
 	}
 }
+
+func (conf *Config) applyDefaults() {
+	if conf.GRPC.ServicePrefix == "" {
+		conf.GRPC.ServicePrefix = defaultGRPCServicePrefix
+	}
+	conf.ZapLog.applyDefaults()
+	conf.LogNotice.applyDefaults()
+}
+
+func (conf *ZapLog) applyDefaults() {
+	if conf.LogMaxSize == 0 {
+		conf.LogMaxSize = defaultZapLogMaxSize
+	}
+	if conf.LogMaxBackups == 0 {
+		conf.LogMaxBackups = defaultZapLogMaxBackups
+	}
+	if conf.LogMaxAge == 0 {
+		conf.LogMaxAge = defaultZapLogMaxAge
+	}
+	if conf.StacktraceLevel == 0 {
+		conf.StacktraceLevel = defaultZapStacktraceLevel
+	}
+}
+
+func (conf *LogNotice) applyDefaults() {
+	if conf.LimitWindowSeconds == 0 {
+		conf.LimitWindowSeconds = defaultLogNoticeLimitWindowSeconds
+	}
+	if conf.LimitMaxKeys == 0 {
+		conf.LimitMaxKeys = defaultLogNoticeLimitMaxKeys
+	}
+}
+
+func provideServer(conf *Config) *Server             { return &conf.Server }
+func provideHTTP(conf *Config) *HTTP                 { return &conf.HTTP }
+func provideGraceRestart(conf *Config) *GraceRestart { return &conf.GraceRestart }
+func provideMySQL(conf *Config) []MySQL              { return conf.MySQL }
+func provideRedis(conf *Config) *Redis               { return &conf.Redis }
+func provideLogNotice(conf *Config) *LogNotice       { return &conf.LogNotice }
+func provideZapLog(conf *Config) *ZapLog             { return &conf.ZapLog }
+func provideGRPC(conf *Config) *GRPC                 { return &conf.GRPC }
+func provideEtcd(conf *Config) *Etcd                 { return &conf.Etcd }
+func provideKafka(conf *Config) *Kafka               { return &conf.Kafka }
+func provideGout(conf *Config) *Gout                 { return &conf.Gout }

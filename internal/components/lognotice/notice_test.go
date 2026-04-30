@@ -56,3 +56,19 @@ func TestRateLimiterDoesNotSuppressDifferentMessages(t *testing.T) {
 		t.Fatalf("sent count = %d, want 2", len(sender.sent))
 	}
 }
+
+func TestNoticeLimiterUsesConfigWindowAndCanBeDisabled(t *testing.T) {
+	conf := &config{
+		LimitWindowSeconds: 2,
+		LimitMaxKeys:       10,
+	}
+	limiter := newNoticeLimiterFromConfig(conf)
+	if limiter.window != 2*time.Second {
+		t.Fatalf("limit window = %s, want 2s", limiter.window)
+	}
+
+	conf.IsLimitDisabled = true
+	if limiter := newNoticeLimiterFromConfig(conf); limiter != nil {
+		t.Fatal("expected nil limiter when disabled")
+	}
+}

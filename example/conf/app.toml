@@ -51,11 +51,18 @@ url = "http://sms.example.com/sms"  # 短信发送url
 name = "myapp"                                                                                        # 应用名称
 notice_type = 1                                                                                       # 通知类型,1=>企业微信,2=>邮件,3=>飞书,4=>telegram
 notice = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key"                      # 通知地址
+limit_window_seconds = 60                                                                             # 同一错误通知聚合窗口，单位秒
+limit_max_keys = 1024                                                                                 # 聚合窗口内最多保留的错误摘要数量
+is_limit_disabled = false                                                                             # 是否关闭错误通知限流聚合
 
 
 [zap_log] # 日志配置不是必传，不配置，默认的日志文件路径在可执行程序所在目录下的log目录下，level是0
 file = ""  # 日志文件的路径
 level = -1 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不配置默认是0
+stacktrace_level = 1 # 打印堆栈的日志级别,-1=>debug,0=>info,1=>warn,2=>error,不配置默认是1
+log_max_size = 128   # 单个日志文件最大大小，单位MB
+log_max_backups = 30 # 日志最多保留备份数
+log_max_age = 7      # 日志最多保留天数
 
 
 [grpc]
