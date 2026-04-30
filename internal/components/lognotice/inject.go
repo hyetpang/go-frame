@@ -1,7 +1,7 @@
 package lognotice
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/interfaces"
@@ -10,13 +10,18 @@ import (
 )
 
 // 错误日志通知返回具体实例
-func New(lc fx.Lifecycle) interfaces.LogNoticeInterface {
+func New(lc fx.Lifecycle) (interfaces.LogNoticeInterface, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("log_notice", &conf)
 	if err != nil {
-		log.Fatalf("log_notice配置Unmarshal到对象出错: %s", err.Error())
+		return nil, fmt.Errorf("log_notice配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
-	n := newNotice(conf, lc)
-	return n
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("log_notice配置验证不通过: %w", err)
+	}
+	n, err := newNotice(conf, lc)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
 }

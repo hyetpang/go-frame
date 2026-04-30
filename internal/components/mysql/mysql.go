@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
@@ -15,19 +16,24 @@ import (
 	"moul.io/zapgorm2"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) map[string]*gorm.DB {
+func New(zapLog *zap.Logger, lc fx.Lifecycle) (map[string]*gorm.DB, error) {
 	configs := make([]*config, 0, 3)
 	err := viper.UnmarshalKey("mysql", &configs)
 	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
+		return nil, fmt.Errorf("mysql配置Unmarshal到对象出错: %w", err)
 	}
 	if len(configs) < 1 {
-		logs.Fatal("必须配置一个数据库")
+		return nil, fmt.Errorf("必须配置一个数据库")
 	}
 	for _, conf := range configs {
-		common.MustValidate(conf)
+		if err := common.Validate(conf); err != nil {
+			return nil, fmt.Errorf("mysql配置验证不通过 name=%s: %w", conf.Name, err)
+		}
 	}
-	dbs := newMysqls(configs, zapLog)
+	dbs, err := newMysqls(configs, zapLog)
+	if err != nil {
+		return nil, err
+	}
 	lc.Append(fx.StopHook(func() {
 		for name, db := range dbs {
 			if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
@@ -37,17 +43,22 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) map[string]*gorm.DB {
 			}
 		}
 	}))
-	return dbs
+	return dbs, nil
 }
 
-func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) *gorm.DB {
+func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) (*gorm.DB, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("mysql", &conf)
 	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
+		return nil, fmt.Errorf("mysql配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
-	db := newMysql(conf, zapLog)
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("mysql配置验证不通过: %w", err)
+	}
+	db, err := newMysql(conf, zapLog)
+	if err != nil {
+		return nil, err
+	}
 	lc.Append(fx.StopHook(func() {
 		if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
 			if e := sqlDB.Close(); e != nil {
@@ -55,23 +66,29 @@ func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) *gorm.DB {
 			}
 		}
 	}))
-	return db
+	return db, nil
 }
 
-func newMysqls(configs []*config, zapLog *zap.Logger) map[string]*gorm.DB {
+func newMysqls(configs []*config, zapLog *zap.Logger) (map[string]*gorm.DB, error) {
 	dbs := make(map[string]*gorm.DB)
 	for _, conf := range configs {
 		_, ok := dbs[conf.Name]
 		if ok {
-			logs.Fatal("数据库连接名字重复", zap.String("name", conf.Name))
+			closeMysqls(dbs)
+			return nil, fmt.Errorf("数据库连接名字重复 name=%s", conf.Name)
 		}
-		dbs[conf.Name] = newMysql(conf, zapLog)
+		db, err := newMysql(conf, zapLog)
+		if err != nil {
+			closeMysqls(dbs)
+			return nil, err
+		}
+		dbs[conf.Name] = db
 	}
-	return dbs
+	return dbs, nil
 }
 
 // TODO 增加指标监控 https://github.com/go-gorm/prometheus
-func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
+func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
 	nameStrategy := schema.NamingStrategy{}
 	nameStrategy.TablePrefix = conf.TablePrefix
 	if len(nameStrategy.TablePrefix) > 0 {
@@ -86,11 +103,11 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 		Logger:         gormLog,
 	})
 	if err != nil {
-		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("name", conf.Name))
+		return nil, fmt.Errorf("数据库连接出错 name=%s: %w", conf.Name, err)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("name", conf.Name))
+		return nil, fmt.Errorf("获取数据库底层连接出错 name=%s: %w", conf.Name, err)
 	}
 	maxIdleTimeConfig := conf.MaxIdleTime
 	if maxIdleTimeConfig == 0 {
@@ -114,5 +131,13 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 		maxOpenConnsConfig = maxOpenConns
 	}
 	sqlDB.SetMaxOpenConns(maxOpenConnsConfig)
-	return db
+	return db, nil
+}
+
+func closeMysqls(dbs map[string]*gorm.DB) {
+	for _, db := range dbs {
+		if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+	}
 }

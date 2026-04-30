@@ -67,7 +67,10 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 
 // 使用etcd作为服务发现
 func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client) (map[string]*grpc.ClientConn, error) {
-	conf := newConfig()
+	conf, err := newConfig()
+	if err != nil {
+		return nil, err
+	}
 	if len(conf.ServiceNames) < 1 {
 		return nil, errors.New("grpc client 必须配置一个服务名字")
 	}

@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hyetpang/go-frame/internal/constants"
 	"github.com/hyetpang/go-frame/pkgs/common"
@@ -12,23 +13,28 @@ import (
 	"go.uber.org/zap"
 )
 
-func New(lc fx.Lifecycle) redis.UniversalClient {
+func New(lc fx.Lifecycle) (redis.UniversalClient, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("redis", conf)
 	if err != nil {
-		logs.Fatal("redis配置Unmarshal到对象出错", zap.Error(err))
+		return nil, fmt.Errorf("redis配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
-	redisClient := newRedis(conf)
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("redis配置验证不通过: %w", err)
+	}
+	redisClient, err := newRedis(conf)
+	if err != nil {
+		return nil, err
+	}
 	lc.Append(fx.StopHook(func() {
 		if e := redisClient.Close(); e != nil {
 			logs.Error("关闭redis连接出错", zap.Error(e))
 		}
 	}))
-	return redisClient
+	return redisClient, nil
 }
 
-func newRedis(conf *config) redis.UniversalClient {
+func newRedis(conf *config) (redis.UniversalClient, error) {
 	redisOptions := &redis.Options{
 		Addr:     conf.Addr,
 		Password: conf.Pwd,
@@ -38,7 +44,8 @@ func newRedis(conf *config) redis.UniversalClient {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.CtxTimeOut)
 	defer cancel()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		logs.Fatal("连接redis出错", zap.Error(err), zap.String("addr", conf.Addr))
+		_ = redisClient.Close()
+		return nil, fmt.Errorf("连接redis出错 addr=%s: %w", conf.Addr, err)
 	}
-	return redisClient
+	return redisClient, nil
 }

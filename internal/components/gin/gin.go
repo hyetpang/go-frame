@@ -125,7 +125,9 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
 	if err := viper.UnmarshalKey("http", conf); err != nil {
 		return nil, nil, fmt.Errorf("http配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
+	if err := common.Validate(conf); err != nil {
+		return nil, nil, fmt.Errorf("http配置验证不通过: %w", err)
+	}
 	if len(conf.Addr) < 1 {
 		return nil, nil, errors.New("http配置字段addr没有配置值")
 	}
@@ -153,11 +155,16 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
 		router.GET(conf.DocPath, ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 	if conf.IsPprof {
-		// TODO 加权限
+		if conf.PprofUsername == "" || conf.PprofPassword == "" {
+			return nil, nil, errors.New("开启pprof时必须配置pprof_username和pprof_password")
+		}
+		pprofRouter := router.Group("", gin.BasicAuth(gin.Accounts{
+			conf.PprofUsername: conf.PprofPassword,
+		}))
 		if len(conf.PprofPrefix) > 0 {
-			pprof.Register(router, conf.PprofPrefix)
+			pprof.Register(pprofRouter, conf.PprofPrefix)
 		} else {
-			pprof.Register(router)
+			pprof.Register(pprofRouter)
 		}
 	}
 	return router, conf, nil

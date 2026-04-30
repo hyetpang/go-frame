@@ -1,7 +1,7 @@
 package logs
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -13,17 +13,19 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func New(lc fx.Lifecycle) *zap.Logger {
+func New(lc fx.Lifecycle) (*zap.Logger, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("zap_log", &conf)
 	if err != nil {
-		log.Fatalf("zap_log配置Unmarshal到对象出错: %s", err.Error())
+		return nil, fmt.Errorf("zap_log配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("zap_log配置验证不通过: %w", err)
+	}
 	if len(conf.Path) < 1 {
 		currentPath, err := filepath.Abs(filepath.Dir(os.Args[0]))
 		if err != nil {
-			log.Fatalf("获取当前文件路径出错:%s", err.Error())
+			return nil, fmt.Errorf("获取当前文件路径出错: %w", err)
 		}
 		conf.Path = filepath.Join(currentPath, "logs")
 	}
@@ -56,7 +58,10 @@ func New(lc fx.Lifecycle) *zap.Logger {
 		zapcore.NewCore(consoleEncoder, consoleDebugging, lowPriority),
 	)
 	if conf.IsLogFile {
-		debugFile, errFile := getLogFilePath(conf.Path)
+		debugFile, errFile, err := getLogFilePath(conf.Path)
+		if err != nil {
+			return nil, fmt.Errorf("获取日志文件路径出错: %w", err)
+		}
 		debugHook := &lumberjack.Logger{
 			Filename:   debugFile,
 			MaxSize:    logMaxSize,
@@ -96,7 +101,7 @@ func New(lc fx.Lifecycle) *zap.Logger {
 		_ = zap.L().Sync()
 		_ = logger.Sync() // 日志同步
 	}))
-	return logger
+	return logger, nil
 }
 
 // func customTimeEncoder(time time.Time, encoder zapcore.PrimitiveArrayEncoder) {
@@ -104,20 +109,26 @@ func New(lc fx.Lifecycle) *zap.Logger {
 // }
 
 // 获取默认的日志文件位置
-func getLogFilePath(currentPath string) (string, string) {
+func getLogFilePath(currentPath string) (string, string, error) {
 	err := makeDir(currentPath)
-	common.Panic(err)
+	if err != nil {
+		return "", "", err
+	}
 
 	debugDir := filepath.Join(currentPath, "debug")
 	err = makeDir(debugDir)
-	common.Panic(err)
+	if err != nil {
+		return "", "", err
+	}
 	debugFile := filepath.Join(debugDir, filepath.Base(os.Args[0])+".log")
 
 	errDir := filepath.Join(currentPath, "error")
 	err = makeDir(errDir)
-	common.Panic(err)
+	if err != nil {
+		return "", "", err
+	}
 	errFile := filepath.Join(errDir, filepath.Base(os.Args[0])+".log")
-	return debugFile, errFile
+	return debugFile, errFile, nil
 }
 
 // 创建不存在的目录

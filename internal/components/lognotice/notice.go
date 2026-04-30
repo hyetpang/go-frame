@@ -1,7 +1,8 @@
 package lognotice
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"runtime"
 	"sync"
 
@@ -14,14 +15,14 @@ import (
 const noticeChanBuffer = 128
 
 type notice struct {
-	conf     *config
-	noticeCh chan noticeContent
-	done     chan struct{}
+	conf      *config
+	noticeCh  chan noticeContent
+	done      chan struct{}
 	closeOnce sync.Once
 	sender
 }
 
-func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
+func newNotice(conf *config, lc fx.Lifecycle) (interfaces.LogNoticeInterface, error) {
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
@@ -31,9 +32,9 @@ func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 	case noticeTypeTelegram:
 		sender = newTelegramSender(conf.ChatID)
 	case noticeTypeEmail:
-		log.Fatal("日志错误通知尚未支持邮件")
+		return nil, errors.New("日志错误通知尚未支持邮件")
 	default:
-		log.Fatalf("错误日志配置的通知的类型有误:%+v", conf)
+		return nil, fmt.Errorf("错误日志配置的通知的类型有误:%+v", conf)
 	}
 	n := &notice{
 		conf:     conf,
@@ -45,7 +46,7 @@ func newNotice(conf *config, lc fx.Lifecycle) interfaces.LogNoticeInterface {
 	lc.Append(fx.StopHook(func() {
 		n.Close()
 	}))
-	return n
+	return n, nil
 }
 
 func (notice *notice) Notice(msg string, fields ...zap.Field) {

@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/IBM/sarama"
@@ -17,9 +18,11 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	conf := new(config)
 	err := viper.UnmarshalKey("kafka", &conf)
 	if err != nil {
-		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err))
+		return nil, nil, nil, nil, fmt.Errorf("kafka配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
+	if err := common.Validate(conf); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("kafka配置验证不通过: %w", err)
+	}
 	sarama.Logger = log.NewKafkaLog(zapLog)
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll          // 发送完数据需要leader和follow都确认
@@ -31,19 +34,25 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	// 连接kafka
 	client, err := sarama.NewClient(strings.Split(conf.Addr, ","), config)
 	if err != nil {
-		logs.Fatal("连接kafka出错", zap.Error(err), zap.String("addr", conf.Addr))
+		return nil, nil, nil, nil, fmt.Errorf("连接kafka出错 addr=%s: %w", conf.Addr, err)
 	}
 	consumer, err := sarama.NewConsumerFromClient(client)
 	if err != nil {
-		logs.Fatal("创建kafka consumer出错", zap.Error(err), zap.String("addr", conf.Addr))
+		_ = client.Close()
+		return nil, nil, nil, nil, fmt.Errorf("创建kafka consumer出错 addr=%s: %w", conf.Addr, err)
 	}
 	asyncProducer, err := sarama.NewAsyncProducerFromClient(client)
 	if err != nil {
-		logs.Fatal("创建kafka async producer出错", zap.Error(err), zap.String("addr", conf.Addr))
+		_ = consumer.Close()
+		_ = client.Close()
+		return nil, nil, nil, nil, fmt.Errorf("创建kafka async producer出错 addr=%s: %w", conf.Addr, err)
 	}
 	syncProducer, err := sarama.NewSyncProducerFromClient(client)
 	if err != nil {
-		logs.Fatal("创建kafka sync producer出错", zap.Error(err), zap.String("addr", conf.Addr))
+		_ = asyncProducer.Close()
+		_ = consumer.Close()
+		_ = client.Close()
+		return nil, nil, nil, nil, fmt.Errorf("创建kafka sync producer出错 addr=%s: %w", conf.Addr, err)
 	}
 	lc.Append(fx.Hook{
 		OnStop: func(context.Context) error {

@@ -61,7 +61,10 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.Server, error) {
 
 // 不使用服务发现
 func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.ClientConn, error) {
-	conf := newConfig()
+	conf, err := newConfig()
+	if err != nil {
+		return nil, err
+	}
 	if len(conf.Address) < 1 {
 		return nil, errors.New("grpc客户端必须配置监听地址")
 	}
@@ -69,7 +72,10 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger) (*grpc.ClientConn, error) {
 }
 
 func newServer(zapLog *zap.Logger) (*grpc.Server, net.Listener, *config, error) {
-	conf := newConfig()
+	conf, err := newConfig()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if len(conf.Address) < 1 {
 		return nil, nil, nil, errors.New("grpc监听地址必填")
 	}

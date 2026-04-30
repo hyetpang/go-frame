@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,8 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle) *clientv3.Client {
-	conf := newConfig()
+func New(zapLog *zap.Logger, lc fx.Lifecycle) (*clientv3.Client, error) {
+	conf, err := newConfig()
+	if err != nil {
+		return nil, err
+	}
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            strings.Split(conf.Addresses, ","),
 		AutoSyncInterval:     0,
@@ -27,22 +31,24 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) *clientv3.Client {
 		PermitWithoutStream:  false,
 	})
 	if err != nil {
-		logs.Fatal("创建etcd客户端出错", zap.Error(err), zap.String("addresses", conf.Addresses))
+		return nil, fmt.Errorf("创建etcd客户端出错 addresses=%s: %w", conf.Addresses, err)
 	}
 	lc.Append(fx.StopHook(func() {
 		if e := cli.Close(); e != nil {
 			logs.Error("关闭etcd客户端出错", zap.Error(e))
 		}
 	}))
-	return cli
+	return cli, nil
 }
 
-func newConfig() *config {
+func newConfig() (*config, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("etcd", &conf)
 	if err != nil {
-		logs.Fatal("etcd配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		return nil, fmt.Errorf("etcd配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
-	return conf
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("etcd配置验证不通过: %w", err)
+	}
+	return conf, nil
 }

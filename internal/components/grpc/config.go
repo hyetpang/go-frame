@@ -1,10 +1,10 @@
 package grpc
 
 import (
+	"fmt"
+
 	"github.com/hyetpang/go-frame/pkgs/common"
-	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 // grpc 配置
@@ -15,15 +15,17 @@ type config struct {
 }
 
 // 初始化config
-func newConfig() *config {
+func newConfig() (*config, error) {
 	conf := new(config)
 	err := viper.UnmarshalKey("grpc", &conf)
 	if err != nil {
-		logs.Fatal("grpc配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		return nil, fmt.Errorf("grpc配置Unmarshal到对象出错: %w", err)
 	}
-	common.MustValidate(conf)
+	if err := common.Validate(conf); err != nil {
+		return nil, fmt.Errorf("grpc配置验证不通过: %w", err)
+	}
 	if len(conf.ServicePrefix) <= 0 {
 		conf.ServicePrefix = "grpc_services"
 	}
-	return conf
+	return conf, nil
 }
