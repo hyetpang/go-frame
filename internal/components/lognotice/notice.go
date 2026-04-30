@@ -64,6 +64,16 @@ func (notice *notice) Notice(msg string, fields ...zap.Field) {
 }
 
 func (notice *notice) Watch() {
+	for {
+		exit := notice.watchOnce()
+		if exit {
+			return
+		}
+		logs.ErrorWithoutNotice("Watch goroutine crashed, restarting...")
+	}
+}
+
+func (notice *notice) watchOnce() (exit bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -79,7 +89,16 @@ func (notice *notice) Watch() {
 		case msg := <-notice.noticeCh:
 			_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, msg)
 		case <-notice.done:
-			return
+			// drain缓冲区中剩余的消息
+			for {
+				select {
+				case msg := <-notice.noticeCh:
+					_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, msg)
+				default:
+					exit = true
+					return
+				}
+			}
 		}
 	}
 }

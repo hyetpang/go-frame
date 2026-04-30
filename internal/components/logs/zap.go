@@ -17,7 +17,7 @@ func New(lc fx.Lifecycle) *zap.Logger {
 	conf := new(config)
 	err := viper.UnmarshalKey("zap_log", &conf)
 	if err != nil {
-		log.Fatal("zap_log配置Unmarshal到对象出错", zap.Error(err))
+		log.Fatalf("zap_log配置Unmarshal到对象出错: %s", err.Error())
 	}
 	common.MustValidate(conf)
 	if len(conf.Path) < 1 {
@@ -122,5 +122,5 @@ func getLogFilePath(currentPath string) (string, string) {
 
 // 创建不存在的目录
 func makeDir(path string) error {
-	return os.MkdirAll(path, os.ModePerm)
+	return os.MkdirAll(path, 0755)
 }

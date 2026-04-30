@@ -1,6 +1,7 @@
 package gin
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -36,7 +37,11 @@ func recoveryWithZap(logger *zap.Logger, stack bool) gin.HandlerFunc {
 						zap.String("request", string(httpRequest)),
 					)
 					// If the connection is dead, we can't write a status to it.
-					c.Error(err.(error)) // nolint: errcheck
+					if e, ok := err.(error); ok {
+						c.Error(e) // nolint: errcheck
+					} else {
+						c.Error(fmt.Errorf("%v", err)) // nolint: errcheck
+					}
 					c.Abort()
 					return
 				}

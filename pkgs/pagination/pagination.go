@@ -1,7 +1,7 @@
 package pagination
 
 type PaginationI interface {
-	GetPage() int
+	GetOffset() int
 	GetPageSize() int
 }
 
@@ -12,7 +12,7 @@ type Pagination struct {
 
 const defaultPageSize = 20
 
-func (op *Pagination) GetPage() int {
+func (op *Pagination) GetOffset() int {
 	return (op.Page - 1) * op.GetPageSize()
 }
 

@@ -21,8 +21,9 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 		return nil, err
 	}
 	serviceNamePrefix := conf.ServicePrefix
+	ctx, cancel := context.WithCancel(context.Background())
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(startCtx context.Context) error {
 			errCh := make(chan error, 1)
 			go func() {
 				if e := s.Serve(lis); e != nil {
@@ -31,9 +32,11 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 			}()
 			select {
 			case e := <-errCh:
+				cancel()
 				return fmt.Errorf("启动grpc serve出错: %w", e)
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-startCtx.Done():
+				cancel()
+				return startCtx.Err()
 			case <-time.After(time.Second):
 				serviceNames := conf.ServiceNames
 				if len(serviceNames) == 0 {
@@ -43,7 +46,8 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 					}
 				}
 				for _, serviceName := range serviceNames {
-					if err := etcdRegisterService(context.TODO(), serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
+					if err := etcdRegisterService(ctx, serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
+						cancel()
 						return fmt.Errorf("注册服务出错 %s: %w", serviceName, err)
 					}
 					logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
@@ -52,7 +56,8 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 				return nil
 			}
 		},
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(stopCtx context.Context) error {
+			cancel()
 			s.GracefulStop()
 			return nil
 		},

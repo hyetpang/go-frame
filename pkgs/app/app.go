@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/jpillora/overseer"
 	"github.com/spf13/viper"
@@ -24,7 +25,9 @@ func (app *App) runWith(state overseer.State) {
 }
 
 func (app *App) run() {
-	viper.Debug() // 打印配置项
+	if common.Dev {
+		viper.Debug() // 仅开发模式打印配置项
+	}
 	application := fx.New(app.options...)
 	if app.isStart {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
@@ -32,6 +35,12 @@ func (app *App) run() {
 		err := application.Start(ctx)
 		if err != nil {
 			logs.Error("运行出错", zap.Error(err))
+			return
+		}
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer stopCancel()
+		if err := application.Stop(stopCtx); err != nil {
+			logs.Error("停止出错", zap.Error(err))
 		}
 	} else {
 		application.Run()

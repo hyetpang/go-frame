@@ -84,11 +84,18 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 	if err != nil {
 		return nil, err
 	}
+	srv := &http.Server{
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			errC := make(chan error, 1)
 			go func() {
-				if err := router.RunListener(state.Listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				if err := srv.Serve(state.Listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errC <- err
 				}
 			}()
@@ -103,6 +110,9 @@ func NewWithGraceRestart(zapLog *zap.Logger, state overseer.State, lc fx.Lifecyc
 			}
 		},
 		OnStop: func(ctx context.Context) error {
+			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
 			logs.Info("http服务器已关闭...")
 			return nil
 		},
@@ -132,8 +142,8 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
 		m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
 		m.Use(router)
 	}
-	router.NoRoute(noMethod)
-	router.NoMethod(noMethod)
+	router.NoRoute(noRoute)
+	router.NoMethod(noMethodHandler)
 	// 健康检查
 	router.GET("/health_check", func(ctx *gin.Context) {
 		common.Wrap(ctx).Success("ok")
@@ -153,8 +163,14 @@ func newGin(zapLog *zap.Logger) (*gin.Engine, *config, error) {
 	return router, conf, nil
 }
 
-func noMethod(ctx *gin.Context) {
+func noRoute(ctx *gin.Context) {
 	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
-	logs.Error("接口不存在", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
+	logs.Error("路由不存在", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	common.Wrap(ctx).Fail(base.CodeErrNotFound)
+}
+
+func noMethodHandler(ctx *gin.Context) {
+	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
+	logs.Error("请求方法不允许", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
+	ctx.AbortWithStatus(http.StatusMethodNotAllowed)
 }

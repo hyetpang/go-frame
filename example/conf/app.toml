@@ -19,7 +19,7 @@ http_addr = ":8081" # http服务监听地址，如果使用优雅重启，这个
 exec_file = ""      # 可执行文件
 
 [mysql]
-connect_string = "kenan:12Kenan456@tcp(10.0.6.225:8904)/support_center_ultra?charset=utf8mb4&parseTime=True&loc=Local" # mysql连接字符串
+connect_string = "user:password@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local" # mysql连接字符串
 max_idle_time = 30                                                                                                     # 单位：分钟
 max_life_time = 60                                                                                                     # 单位：分钟
 max_idle_conns = 10                                                                                                    # 最大的空闲连接
@@ -30,26 +30,25 @@ gorm_log_level = 4                                                              
 name = "default"                                                                                                       # mysql配置的名字，default表示是主数据库，名字必须是default,如果是多个数据库,按toml的数组格式配置即可
 
 [redis]
-addr = "10.22.200.199:6379" # redis连接地址
-pwd = ""                    # redis密码
+addr = "127.0.0.1:6379" # redis连接地址
+pwd = ""                   # redis密码
 db = 1                      # 使用的数据库
 
 [mail]
-user = "tbst@yingxiong.com" # 邮箱用户名
-pass = "yingxiong_2015"     # 邮箱密码
-host = "smtp.exmail.qq.com" # 邮箱主机
-port = 465                  # 邮箱端口
+user = "user@example.com"    # 邮箱用户名
+pass = "your_mail_password"   # 邮箱密码
+host = "smtp.example.com"    # 邮箱主机
+port = 465                   # 邮箱端口
 
 [sms]
-secret = "ae9ff06d28345dc6e018b1c222583fc2" # 短信密钥
-group = "ultrasdk"                          # 短信分组,这个是控制发送短信的title的
-url = "http://sms.yingxiong.com/sms"        # 短信发送url
+secret = "your_sms_secret"          # 短信密钥
+group = "your_group"                # 短信分组
+url = "http://sms.example.com/sms"  # 短信发送url
 
 [log_notice] # 这是错误日志通知的配置
-name = "ultra"                                                                                          # 应用名称                                                                   # 服务名字
-notice_type = 1                                                                                         # 通知类型,1=>企业微信,2=>邮件
-wecom_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=f8192a67-0ce2-427f-81bd-11fd0fb50c10" # 通知类型为1的时候必须有值
-email = "guangming.zhang@yingxiong.com"                                                                 # 通知类型为2的时候必须有值,目前邮件尚未实现，有兴趣可自行实现
+name = "myapp"                                                                                        # 应用名称
+notice_type = 1                                                                                       # 通知类型,1=>企业微信,2=>邮件,3=>飞书,4=>telegram
+notice = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key"                      # 通知地址
 
 
 [zap_log] # 日志配置不是必传，不配置，默认的日志文件路径在可执行程序所在目录下的log目录下，level是0
@@ -59,7 +58,7 @@ level = -1 # 日志级别,可能的值是,-1=>debug,0=>info,1=>warn,2=>error,不
 
 [grpc]
 address = "" # 启动一个grpc server时，这个表示监听地址,启动一个grpc client的时候，表示要连接的grpc server地址,使用etcd作为服务发现时，client可不填
-service_prefix = "grpc_ervices" # 服务注册前缀,不传。默认是grpc_ervices
+service_prefix = "grpc_services" # 服务注册前缀,不传。默认是grpc_services
 service_names = [
     "Hello",
 ] # 指定当前启动的服务名字或者客户端要解析的服务名字,这个仅client有效，在grpc server启动的时候服务名字会打印在控制台,不使用etcd作为服务发现，可不填

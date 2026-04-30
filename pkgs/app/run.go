@@ -88,7 +88,7 @@ func printVersion(_ *zap.Logger) {
 	if ok {
 		var vcsTime, vcsRevision string
 		for _, b := range info.Settings {
-			if b.Key == "vsc.time" {
+			if b.Key == "vcs.time" {
 				vcsTime = b.Value
 			}
 			if b.Key == "vcs.revision" {

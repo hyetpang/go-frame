@@ -6,6 +6,7 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -14,29 +15,47 @@ import (
 	"moul.io/zapgorm2"
 )
 
-func New(zapLog *zap.Logger) map[string]*gorm.DB {
+func New(zapLog *zap.Logger, lc fx.Lifecycle) map[string]*gorm.DB {
 	configs := make([]*config, 0, 3)
 	err := viper.UnmarshalKey("mysql", &configs)
 	if err != nil {
-		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", configs))
+		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
 	}
 	if len(configs) < 1 {
-		logs.Fatal("必须配置一个数据库", zap.Error(err), zap.Any("conf", configs))
+		logs.Fatal("必须配置一个数据库")
 	}
 	for _, conf := range configs {
 		common.MustValidate(conf)
 	}
-	return newMysqls(configs, zapLog)
+	dbs := newMysqls(configs, zapLog)
+	lc.Append(fx.StopHook(func() {
+		for name, db := range dbs {
+			if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
+				if e := sqlDB.Close(); e != nil {
+					logs.Error("关闭mysql连接出错", zap.Error(e), zap.String("name", name))
+				}
+			}
+		}
+	}))
+	return dbs
 }
 
-func NewOne(zapLog *zap.Logger) *gorm.DB {
+func NewOne(zapLog *zap.Logger, lc fx.Lifecycle) *gorm.DB {
 	conf := new(config)
 	err := viper.UnmarshalKey("mysql", &conf)
 	if err != nil {
 		logs.Fatal("mysql配置Unmarshal到对象出错", zap.Error(err))
 	}
 	common.MustValidate(conf)
-	return newMysql(conf, zapLog)
+	db := newMysql(conf, zapLog)
+	lc.Append(fx.StopHook(func() {
+		if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
+			if e := sqlDB.Close(); e != nil {
+				logs.Error("关闭mysql连接出错", zap.Error(e))
+			}
+		}
+	}))
+	return db
 }
 
 func newMysqls(configs []*config, zapLog *zap.Logger) map[string]*gorm.DB {
@@ -67,11 +86,11 @@ func newMysql(conf *config, zapLog *zap.Logger) *gorm.DB {
 		Logger:         gormLog,
 	})
 	if err != nil {
-		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
+		logs.Fatal("数据库连接出错", zap.Error(err), zap.String("name", conf.Name))
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("connectString", conf.ConnectString))
+		logs.Fatal("获取数据库底层连接出错", zap.Error(err), zap.String("name", conf.Name))
 	}
 	maxIdleTimeConfig := conf.MaxIdleTime
 	if maxIdleTimeConfig == 0 {

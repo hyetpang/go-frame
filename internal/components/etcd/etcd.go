@@ -8,10 +8,11 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func New(zapLog *zap.Logger) *clientv3.Client {
+func New(zapLog *zap.Logger, lc fx.Lifecycle) *clientv3.Client {
 	conf := newConfig()
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            strings.Split(conf.Addresses, ","),
@@ -28,6 +29,11 @@ func New(zapLog *zap.Logger) *clientv3.Client {
 	if err != nil {
 		logs.Fatal("创建etcd客户端出错", zap.Error(err), zap.String("addresses", conf.Addresses))
 	}
+	lc.Append(fx.StopHook(func() {
+		if e := cli.Close(); e != nil {
+			logs.Error("关闭etcd客户端出错", zap.Error(e))
+		}
+	}))
 	return cli
 }
 

@@ -17,7 +17,7 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	conf := new(config)
 	err := viper.UnmarshalKey("kafka", &conf)
 	if err != nil {
-		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("kafka配置Unmarshal到对象出错", zap.Error(err))
 	}
 	common.MustValidate(conf)
 	sarama.Logger = log.NewKafkaLog(zapLog)
@@ -31,24 +31,21 @@ func New(lc fx.Lifecycle, zapLog *zap.Logger) (sarama.Client, sarama.AsyncProduc
 	// 连接kafka
 	client, err := sarama.NewClient(strings.Split(conf.Addr, ","), config)
 	if err != nil {
-		logs.Fatal("连接kafka出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("连接kafka出错", zap.Error(err), zap.String("addr", conf.Addr))
 	}
 	consumer, err := sarama.NewConsumerFromClient(client)
 	if err != nil {
-		logs.Fatal("连接kafka出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("创建kafka consumer出错", zap.Error(err), zap.String("addr", conf.Addr))
 	}
 	asyncProducer, err := sarama.NewAsyncProducerFromClient(client)
 	if err != nil {
-		logs.Fatal("连接kafka出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("创建kafka async producer出错", zap.Error(err), zap.String("addr", conf.Addr))
 	}
 	syncProducer, err := sarama.NewSyncProducerFromClient(client)
 	if err != nil {
-		logs.Fatal("连接kafka出错", zap.Error(err), zap.Any("conf", conf))
+		logs.Fatal("创建kafka sync producer出错", zap.Error(err), zap.String("addr", conf.Addr))
 	}
 	lc.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			return nil
-		},
 		OnStop: func(context.Context) error {
 			if e := asyncProducer.Close(); e != nil {
 				logs.Error("关闭kafka异步producer出错", zap.Error(e))

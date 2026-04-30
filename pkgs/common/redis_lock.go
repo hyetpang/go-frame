@@ -23,6 +23,9 @@ func InjectRedis(redisC redis.UniversalClient) {
 }
 
 func Lock(key string, options ...redsync.Option) (func() error, error) {
+	if redisSync == nil {
+		return nil, errors.New("redis lock 未初始化，请先调用 WithRedis()")
+	}
 	merged := make([]redsync.Option, 0, len(options)+2)
 	merged = append(merged,
 		redsync.WithGenValueFunc(GenNanoID),

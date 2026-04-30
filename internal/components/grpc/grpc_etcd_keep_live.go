@@ -26,6 +26,7 @@ func etcdKeepLive(ctx context.Context, leaseChannel <-chan *clientv3.LeaseKeepAl
 				failedCount++
 				logs.Warn("etcd keep alive failed", zap.Int("failed_count", failedCount))
 				if failedCount < 3 {
+					time.Sleep(time.Second)
 					continue
 				}
 				cleanFunc()
@@ -73,15 +74,16 @@ func etcdRegisterService(ctx context.Context, servicePrefix, serviceName, addr s
 
 	cancelCtx, cancel = context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
-	if err := em.AddEndpoint(cancelCtx, fmt.Sprintf("%s/%s/%s", servicePrefix, serviceName, common.GenID()), endpoints.Endpoint{
+	endpointKey := fmt.Sprintf("%s/%s/%s", servicePrefix, serviceName, common.GenID())
+	if err := em.AddEndpoint(cancelCtx, endpointKey, endpoints.Endpoint{
 		Addr: addr,
 	}, clientv3.WithLease(leaseResp.ID)); err != nil {
 		return err
 	}
 	del := func() {
-		cancelCtx, cancel = context.WithTimeout(ctx, time.Second*3)
-		defer cancel()
-		em.DeleteEndpoint(cancelCtx, serviceName)
+		delCtx, delCancel := context.WithTimeout(ctx, time.Second*3)
+		defer delCancel()
+		em.DeleteEndpoint(delCtx, endpointKey)
 		lease.Close()
 	}
 	// 保持注册状态(连接断开重连)

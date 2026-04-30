@@ -25,18 +25,18 @@ func TestPagination_GetPageSize(t *testing.T) {
 	}
 }
 
-func TestPagination_GetPage(t *testing.T) {
+func TestPagination_GetOffset(t *testing.T) {
 	t.Run("explicit page size", func(t *testing.T) {
 		p := &Pagination{Page: 3, PageSize: 10}
-		if got := p.GetPage(); got != 20 {
-			t.Errorf("GetPage() = %d, want 20", got)
+		if got := p.GetOffset(); got != 20 {
+			t.Errorf("GetOffset() = %d, want 20", got)
 		}
 	})
 	t.Run("default page size", func(t *testing.T) {
 		p := &Pagination{Page: 2}
 		want := 1 * defaultPageSize
-		if got := p.GetPage(); got != want {
-			t.Errorf("GetPage() = %d, want %d", got, want)
+		if got := p.GetOffset(); got != want {
+			t.Errorf("GetOffset() = %d, want %d", got, want)
 		}
 	})
 }
