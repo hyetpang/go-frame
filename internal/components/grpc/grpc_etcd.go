@@ -80,11 +80,15 @@ func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 	}
 	clients := make(map[string]*grpc.ClientConn, len(conf.ServiceNames))
 	for _, serviceName := range conf.ServiceNames {
-		conn, err := newClient(fmt.Sprintf("%s:///%s/%s", etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
+		conn, err := newClient(etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
 		if err != nil {
 			return nil, fmt.Errorf("创建grpc客户端 %s 失败: %w", serviceName, err)
 		}
 		clients[serviceName] = conn
 	}
 	return clients, nil
+}
+
+func etcdTarget(scheme, servicePrefix, serviceName string) string {
+	return fmt.Sprintf("%s:///%s/%s", scheme, servicePrefix, serviceName)
 }

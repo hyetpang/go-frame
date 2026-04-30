@@ -141,6 +141,9 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 	if err != nil {
 		return nil, fmt.Errorf("创建grpc连接出错: %w", err)
 	}
+	lc.Append(fx.StartHook(func() {
+		conn.Connect()
+	}))
 	lc.Append(fx.StopHook(func() error {
 		return conn.Close()
 	}))
