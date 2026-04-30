@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/interfaces"
 	"github.com/hyetpang/go-frame/pkgs/logs"
@@ -12,13 +13,17 @@ import (
 	"go.uber.org/zap"
 )
 
-const noticeChanBuffer = 128
+const (
+	noticeChanBuffer  = 128
+	noticeLimitWindow = time.Minute
+)
 
 type notice struct {
 	conf      *config
 	noticeCh  chan noticeContent
 	done      chan struct{}
 	closeOnce sync.Once
+	limiter   *noticeLimiter
 	sender
 }
 
@@ -40,6 +45,7 @@ func newNotice(conf *config, lc fx.Lifecycle) (interfaces.LogNoticeInterface, er
 		conf:     conf,
 		noticeCh: make(chan noticeContent, noticeChanBuffer),
 		done:     make(chan struct{}),
+		limiter:  newNoticeLimiter(noticeLimitWindow, time.Now),
 		sender:   sender,
 	}
 	go n.Watch()
@@ -85,17 +91,22 @@ func (notice *notice) watchOnce() (exit bool) {
 		}
 	}()
 	logs.Info("开始watch出错消息...")
+	flushTicker := time.NewTicker(noticeLimitWindow)
+	defer flushTicker.Stop()
 	for {
 		select {
 		case msg := <-notice.noticeCh:
-			_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, msg)
+			notice.limiter.handle(notice.sender, notice.conf.Name, notice.conf.Notice, msg)
+		case now := <-flushTicker.C:
+			notice.limiter.flushExpired(notice.sender, notice.conf.Name, notice.conf.Notice, now)
 		case <-notice.done:
 			// drain缓冲区中剩余的消息
 			for {
 				select {
 				case msg := <-notice.noticeCh:
-					_ = notice.sender.Send(notice.conf.Name, notice.conf.Notice, msg)
+					notice.limiter.handle(notice.sender, notice.conf.Name, notice.conf.Notice, msg)
 				default:
+					notice.limiter.flushAll(notice.sender, notice.conf.Name, notice.conf.Notice)
 					exit = true
 					return
 				}
