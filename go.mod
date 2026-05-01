@@ -1,6 +1,6 @@
 module github.com/hyetpang/go-frame
 
-go 1.26
+go 1.26.2
 
 require (
 	github.com/IBM/sarama v1.48.0
