@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyetpang/go-frame/pkgs/interfaces"
+	"github.com/hyetpang/go-frame/pkgs/lognotice"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ type notice struct {
 	sender
 }
 
-func newNotice(conf *config, lc fx.Lifecycle) (interfaces.LogNoticeInterface, error) {
+func newNotice(conf *config, lc fx.Lifecycle) (lognotice.Notifier, error) {
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
