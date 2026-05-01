@@ -7,19 +7,20 @@ import (
 )
 
 type Config struct {
-	Server         Server
-	HTTP           HTTP
-	MySQL          []MySQL
-	Redis          Redis
-	Mail           Mail
-	SMS            SMS
-	LogNotice      LogNotice
-	ZapLog         ZapLog
-	GRPC           GRPC
-	Etcd           Etcd
-	Kafka          Kafka
-	Gout           Gout
-	configFilePath string
+	Server    Server    `mapstructure:"server"`
+	HTTP      HTTP      `mapstructure:"http"`
+	MySQL     []MySQL   `mapstructure:"-"` // mysql 段允许单实例与数组两种写法,统一在 unmarshalMySQL 中处理
+	Redis     Redis     `mapstructure:"redis"`
+	Mail      Mail      `mapstructure:"mail"`
+	SMS       SMS       `mapstructure:"sms"`
+	LogNotice LogNotice `mapstructure:"log_notice"`
+	ZapLog    ZapLog    `mapstructure:"zap_log"`
+	GRPC      GRPC      `mapstructure:"grpc"`
+	Etcd      Etcd      `mapstructure:"etcd"`
+	Kafka     Kafka     `mapstructure:"kafka"`
+	Gout      Gout      `mapstructure:"gout"`
+
+	configFilePath string `mapstructure:"-"`
 }
 
 type Server struct {
@@ -121,6 +122,9 @@ const (
 	defaultLogNoticeLimitMaxKeys       = 1024
 )
 
+// Load 读取并解析单个 toml 配置文件,等价于早期版本的逐段 UnmarshalKey,
+// 但通过 viper.Unmarshal 一次性完成除 mysql 外所有段的反序列化。
+// mysql 段因兼容单实例与数组两种写法,在 unmarshalMySQL 中单独处理。
 func Load(configFile string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigFile(configFile)
@@ -128,43 +132,18 @@ func Load(configFile string) (*Config, error) {
 	if err := v.ReadInConfig(); err != nil {
 		return nil, err
 	}
+	return buildConfig(v, configFile)
+}
 
+// buildConfig 把已经 ReadInConfig 完成的 viper 实例反序列化成 *Config,
+// 抽出来便于 LoadWithEnv 等多文件合并入口复用。
+func buildConfig(v *viper.Viper, configFile string) (*Config, error) {
 	conf := &Config{configFilePath: configFile}
-	if err := v.UnmarshalKey("server", &conf.Server); err != nil {
-		return nil, fmt.Errorf("server配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("http", &conf.HTTP); err != nil {
-		return nil, fmt.Errorf("http配置Unmarshal到对象出错: %w", err)
+	if err := v.Unmarshal(conf); err != nil {
+		return nil, fmt.Errorf("配置Unmarshal到对象出错: %w", err)
 	}
 	if err := unmarshalMySQL(v, conf); err != nil {
 		return nil, err
-	}
-	if err := v.UnmarshalKey("redis", &conf.Redis); err != nil {
-		return nil, fmt.Errorf("redis配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("mail", &conf.Mail); err != nil {
-		return nil, fmt.Errorf("mail配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("sms", &conf.SMS); err != nil {
-		return nil, fmt.Errorf("sms配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("log_notice", &conf.LogNotice); err != nil {
-		return nil, fmt.Errorf("log_notice配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("zap_log", &conf.ZapLog); err != nil {
-		return nil, fmt.Errorf("zap_log配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("grpc", &conf.GRPC); err != nil {
-		return nil, fmt.Errorf("grpc配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("etcd", &conf.Etcd); err != nil {
-		return nil, fmt.Errorf("etcd配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("kafka", &conf.Kafka); err != nil {
-		return nil, fmt.Errorf("kafka配置Unmarshal到对象出错: %w", err)
-	}
-	if err := v.UnmarshalKey("gout", &conf.Gout); err != nil {
-		return nil, fmt.Errorf("gout配置Unmarshal到对象出错: %w", err)
 	}
 	conf.applyDefaults()
 	return conf, nil
@@ -178,6 +157,7 @@ func unmarshalMySQL(v *viper.Viper, conf *Config) error {
 	if err := v.UnmarshalKey("mysql", &conf.MySQL); err == nil && len(conf.MySQL) > 0 {
 		return nil
 	}
+	conf.MySQL = nil
 
 	var one MySQL
 	if err := v.UnmarshalKey("mysql", &one); err != nil {
