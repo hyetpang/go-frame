@@ -54,6 +54,32 @@ app.Run(
 
 配置只在启动层读取一次并解析成强类型对象，组件通过 `fx` 接收自己的配置 section，不直接读取全局 `viper`。
 
+### 多环境配置（APP_ENV）
+
+`example/main.go` 演示了按环境变量挑选配置文件的常见做法：
+
+```go
+func resolveConfigFile() string {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		return "./conf/app.toml"
+	}
+	return fmt.Sprintf("./conf/app.%s.toml", env)
+}
+
+app.Run(options.WithConfigFile(resolveConfigFile()), ...)
+```
+
+启动时按需指定：
+
+```bash
+APP_ENV=dev  go run ./example   # 加载 ./conf/app.dev.toml
+APP_ENV=prod go run ./example   # 加载 ./conf/app.prod.toml
+go run ./example                # 未设置时回落到 ./conf/app.toml
+```
+
+如果希望保留 `app.toml` 作为基础再叠加环境覆盖（base + overlay 模式），`internal/config.LoadWithEnv` 已经实现了 `app.toml + app.${APP_ENV}.toml` 的 merge 流程，业务方在自定义启动入口时可以直接调用。
+
 ## 常用组件
 
 HTTP：
@@ -99,6 +125,32 @@ app.Run(options.WithLogNotice())
 ```
 
 同一错误会按 `filename + line + msg` 在配置窗口内聚合，避免高频刷屏。
+
+Kafka（按需拆分）：
+
+```go
+// 自管 Producer/Consumer：仅注入 sarama.Client
+app.Run(options.WithKafkaClient())
+
+// 纯生产者服务：sarama.Client + sarama.SyncProducer
+app.Run(options.WithKafkaSyncProducer())
+
+// 异步生产场景：sarama.Client + sarama.AsyncProducer
+app.Run(options.WithKafkaAsyncProducer())
+
+// 纯消费者服务：sarama.Client + sarama.Consumer
+app.Run(options.WithKafkaConsumer())
+```
+
+`options.WithKafka()` 会同时注入 4 种依赖，已标记为 `Deprecated` —— 新代码请按角色挑选拆分版，纯生产或纯消费服务不再被迫建立全部资源。
+
+OpenTelemetry 分布式追踪：
+
+```go
+app.Run(options.WithTracing())
+```
+
+配置 `[tracing] enable=false` 时返回 noop TracerProvider，零成本回退；`enable=true` 时按 `endpoint`/`protocol` 上报到 OTLP collector，并自动接管 gRPC、HTTP、MySQL、Redis、Kafka 的 instrumentation。生产环境也建议默认调用本 option，按配置开关控制是否上报。
 
 ## HTTP 约定
 
