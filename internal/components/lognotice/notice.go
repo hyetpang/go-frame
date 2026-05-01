@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	noticeChanBuffer  = 128
-	noticeLimitWindow = time.Minute
+	noticeChanBuffer    = 128
+	noticeLimitWindow   = time.Minute
+	noticeAliveInterval = 30 * time.Second
 )
 
 type notice struct {
@@ -27,6 +28,7 @@ type notice struct {
 }
 
 func newNotice(conf *config, lc fx.Lifecycle) (lognoticepkg.Notifier, error) {
+	initMetrics()
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
@@ -67,6 +69,9 @@ func (notice *notice) Notice(msg string, filename string, line int, fields ...za
 	case <-notice.done:
 	default:
 		// 通道已满,丢弃本条通知避免阻塞调用方
+		if noticeDropped != nil {
+			noticeDropped.Inc()
+		}
 	}
 }
 
@@ -74,7 +79,13 @@ func (notice *notice) Watch() {
 	for {
 		exit := notice.watchOnce()
 		if exit {
+			if noticeAliveGauge != nil {
+				noticeAliveGauge.Set(0)
+			}
 			return
+		}
+		if noticeRestart != nil {
+			noticeRestart.Inc()
 		}
 		logs.ErrorWithoutNotice("Watch goroutine crashed, restarting...")
 	}
@@ -91,18 +102,27 @@ func (notice *notice) watchOnce() (exit bool) {
 		}
 	}()
 	logs.Info("开始watch出错消息...")
+	if noticeAliveGauge != nil {
+		noticeAliveGauge.Set(1)
+	}
 	flushInterval := noticeLimitWindow
 	if notice.limiter != nil {
 		flushInterval = notice.limiter.window
 	}
 	flushTicker := time.NewTicker(flushInterval)
 	defer flushTicker.Stop()
+	aliveTicker := time.NewTicker(noticeAliveInterval)
+	defer aliveTicker.Stop()
 	for {
 		select {
 		case msg := <-notice.noticeCh:
 			notice.limiter.handle(notice.sender, notice.conf.Name, notice.conf.Notice, msg)
 		case now := <-flushTicker.C:
 			notice.limiter.flushExpired(notice.sender, notice.conf.Name, notice.conf.Notice, now)
+		case <-aliveTicker.C:
+			if noticeAliveGauge != nil {
+				noticeAliveGauge.Set(1)
+			}
 		case <-notice.done:
 			// drain缓冲区中剩余的消息
 			for {
