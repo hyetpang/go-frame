@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -29,7 +30,8 @@ func recoveryWithZap(logger *zap.Logger, stack bool) gin.HandlerFunc {
 						}
 					}
 				}
-				lognotice.Notice("[Recovery from panic]")
+				_, recoverFile, recoverLine, _ := runtime.Caller(0)
+				lognotice.Notice("[Recovery from panic]", recoverFile, recoverLine)
 				// 复用 sensitiveHeaders 白名单脱敏,防止 Cookie/Authorization 等敏感头落日志或外发到 webhook
 				httpRequest := common.SanitizeRequestForLog(c.Request)
 				if brokenPipe {

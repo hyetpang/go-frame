@@ -3,12 +3,11 @@ package lognotice
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 
-	"github.com/hyetpang/go-frame/pkgs/lognotice"
 	"github.com/hyetpang/go-frame/pkgs/logs"
+	lognoticepkg "github.com/hyetpang/go-frame/pkgs/lognotice"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -27,7 +26,7 @@ type notice struct {
 	sender
 }
 
-func newNotice(conf *config, lc fx.Lifecycle) (lognotice.Notifier, error) {
+func newNotice(conf *config, lc fx.Lifecycle) (lognoticepkg.Notifier, error) {
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
@@ -55,8 +54,9 @@ func newNotice(conf *config, lc fx.Lifecycle) (lognotice.Notifier, error) {
 	return n, nil
 }
 
-func (notice *notice) Notice(msg string, fields ...zap.Field) {
-	_, filename, line, _ := runtime.Caller(3)
+// Notice 接收一条出错通知,filename/line 由调用方(pkgs/logs)给出,
+// 因此这里不再使用 runtime.Caller 自行解析栈帧,可避免栈深耦合。
+func (notice *notice) Notice(msg string, filename string, line int, fields ...zap.Field) {
 	content := noticeContent{
 		msg:      msg,
 		filename: filename,
