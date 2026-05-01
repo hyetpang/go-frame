@@ -22,6 +22,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// httpReadyTimeout 启动期 self-check 的总超时,避免新检查拖慢 fx 启动
+	httpReadyTimeout = 200 * time.Millisecond
+)
+
 func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
 	router, conf, err := newGin(zapLog, conf)
 	if err != nil {
@@ -63,20 +68,59 @@ func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, ro
 		}
 	}()
 
+	// 用一个短超时 + 主动 self-check 替代 select 的 default 分支,
+	// 既避免固定 1s 等待,又能在启动失败时快速感知。
+	checkCtx, cancel := context.WithTimeout(ctx, httpReadyTimeout)
+	defer cancel()
+	if err := selfCheckHTTPReady(checkCtx, lis.Addr().String(), errC); err != nil {
+		return err
+	}
+
+	if router != nil && !isProd {
+		for _, r := range router.Routes() {
+			logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
+		}
+	}
+	logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
+	return nil
+}
+
+// selfCheckHTTPReady 主动 GET /health_check 验证 HTTP 服务真的能接受请求。
+// errC 中的 Serve 错误优先返回,避免误报启动成功。
+func selfCheckHTTPReady(ctx context.Context, addr string, errC <-chan error) error {
 	select {
+	case err := <-errC:
+		if err != nil {
+			return err
+		}
 	case <-ctx.Done():
 		return ctx.Err()
-	case err := <-errC:
-		return err
 	default:
-		if router != nil && !isProd {
-			for _, r := range router.Routes() {
-				logs.Info("注册的路由=>", zap.String("method", r.Method), zap.String("url", r.Path), zap.String("handler", r.Handler))
-			}
-		}
-		logs.Info("HTTP服务器启动成功", zap.String("监听地址", lis.Addr().String()))
-		return nil
 	}
+
+	url := fmt.Sprintf("http://%s/health_check", addr)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("构造http健康检查请求失败: %w", err)
+	}
+	client := &http.Client{Timeout: httpReadyTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		// self-check 失败时再确认 Serve 是否已经直接挂掉
+		select {
+		case e := <-errC:
+			if e != nil {
+				return e
+			}
+		default:
+		}
+		return fmt.Errorf("self-check http server %s 失败: %w", addr, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("http健康检查状态码异常: %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
