@@ -10,9 +10,15 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
+
+	"github.com/hyetpang/go-frame/pkgs/logs"
 )
 
 type Config struct {
@@ -351,6 +357,26 @@ func (r *reloadCallbacks) snapshot() []func(*Config) {
 // 这里用包级变量把回调与 watch 解耦,保持 Config 结构体本身可序列化、可拷贝。
 var globalReloadCallbacks reloadCallbacks
 
+// reloadMetrics 持有热加载相关 prometheus 指标,用 sync.Once 保证只注册一次。
+var (
+	reloadMetricsOnce    sync.Once
+	reloadSuccessCounter prometheus.Counter
+	reloadFailedCounter  prometheus.Counter
+)
+
+func initReloadMetrics() {
+	reloadMetricsOnce.Do(func() {
+		reloadSuccessCounter = promauto.NewCounter(prometheus.CounterOpts{
+			Name: "config_reload_success_total",
+			Help: "配置文件热加载成功次数",
+		})
+		reloadFailedCounter = promauto.NewCounter(prometheus.CounterOpts{
+			Name: "config_reload_failed_total",
+			Help: "配置文件热加载失败次数",
+		})
+	})
+}
+
 // WatchAndReload 监听 configFilePath 的变更,文件变化时重新调用 Load 解析新配置,
 // 并依次同步执行所有注册的回调,把新 *Config 交给业务方决定如何应用。
 //
@@ -358,7 +384,7 @@ var globalReloadCallbacks reloadCallbacks
 // 自行用 atomic.Value 等机制更新 *ZapLog / *Gout 等被消费的字段,从而保证 fx
 // 单例的引用不失效。一次只能 Watch 一个文件,后续调用会追加回调。
 //
-// 注:这是"打基础"的能力 — 仅观察 baseFile 的变化,不会重新 merge 环境覆盖文件。
+// 注意: WatchAndReload 仅重读 baseFile,不重新合并 APP_ENV overlay。生产环境请勿依赖该方法做环境覆盖热更。
 func (conf *Config) WatchAndReload(onChange func(*Config)) {
 	if onChange == nil {
 		return
@@ -367,29 +393,68 @@ func (conf *Config) WatchAndReload(onChange func(*Config)) {
 	startWatchOnce(conf.configFilePath)
 }
 
+// watchPath 启动对 path 的文件监听,带 200ms 去抖动。
+// 供 startWatchOnce 和测试共用。callbacks 为 nil 时使用 globalReloadCallbacks。
+func watchPath(path string, callbacks *reloadCallbacks) {
+	if path == "" {
+		return
+	}
+	if callbacks == nil {
+		callbacks = &globalReloadCallbacks
+	}
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("toml")
+	if err := v.ReadInConfig(); err != nil {
+		return
+	}
+	initReloadMetrics()
+	var (
+		debounceTimer *time.Timer
+		debounceMu    sync.Mutex
+	)
+	v.OnConfigChange(func(_ fsnotify.Event) {
+		debounceMu.Lock()
+		defer debounceMu.Unlock()
+		if debounceTimer != nil {
+			debounceTimer.Reset(200 * time.Millisecond)
+			return
+		}
+		debounceTimer = time.AfterFunc(200*time.Millisecond, func() {
+			debounceMu.Lock()
+			debounceTimer = nil
+			debounceMu.Unlock()
+
+			// 用独立 viper 实例重新读取文件,避免复用 v(viper watch 内部
+			// 已调用 ReadInConfig,解析失败时会保留旧数据导致无法感知错误)。
+			fresh := viper.New()
+			fresh.SetConfigFile(path)
+			fresh.SetConfigType("toml")
+			if err := fresh.ReadInConfig(); err != nil {
+				reloadFailedCounter.Inc()
+				logs.Error("配置热加载失败:文件解析出错", zap.Error(err), zap.String("path", path))
+				return
+			}
+			newConf, err := buildConfig(fresh, path)
+			if err != nil {
+				reloadFailedCounter.Inc()
+				logs.Error("配置热加载失败:Unmarshal 出错", zap.Error(err), zap.String("path", path))
+				return
+			}
+			reloadSuccessCounter.Inc()
+			for _, fn := range callbacks.snapshot() {
+				fn(newConf)
+			}
+		})
+	})
+	v.WatchConfig()
+}
+
 var startWatchOnce = func() func(string) {
 	var once sync.Once
 	return func(path string) {
 		once.Do(func() {
-			if path == "" {
-				return
-			}
-			v := viper.New()
-			v.SetConfigFile(path)
-			v.SetConfigType("toml")
-			if err := v.ReadInConfig(); err != nil {
-				return
-			}
-			v.OnConfigChange(func(_ fsnotify.Event) {
-				newConf, err := buildConfig(v, path)
-				if err != nil {
-					return
-				}
-				for _, fn := range globalReloadCallbacks.snapshot() {
-					fn(newConf)
-				}
-			})
-			v.WatchConfig()
+			watchPath(path, nil)
 		})
 	}
 }()

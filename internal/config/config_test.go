@@ -4,7 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestLoadReadsTypedSectionsWithoutGlobalViper(t *testing.T) {
@@ -333,5 +339,109 @@ func TestLoadExampleConfigs(t *testing.T) {
 				t.Fatal("expected zap log defaults or explicit rotation config")
 			}
 		})
+	}
+}
+
+// validToml 是测试用的最小合法 toml 配置。
+const validToml = `
+[server]
+run_mode = "dev"
+
+[http]
+addr = ":8080"
+
+[redis]
+addr = "127.0.0.1:6379"
+`
+
+// TestWatchAndReloadLogsErrorOnInvalidContent 验证写入非法 toml 后:
+// 1. onChange 回调不被调用
+// 2. 错误通过 zap 全局 logger 记录(level=Error)
+func TestWatchAndReloadLogsErrorOnInvalidContent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(path, []byte(validToml), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 用 observer 替换全局 zap logger,捕获日志输出
+	core, recorded := observer.New(zapcore.ErrorLevel)
+	original := zap.L()
+	zap.ReplaceGlobals(zap.New(core))
+	t.Cleanup(func() { zap.ReplaceGlobals(original) })
+
+	// 初始化 reload 指标(避免 nil counter panic)
+	initReloadMetrics()
+
+	var callbacks reloadCallbacks
+	var callCount atomic.Int32
+	callbacks.add(func(_ *Config) {
+		callCount.Add(1)
+	})
+
+	watchPath(path, &callbacks)
+
+	// 写入非法 toml
+	if err := os.WriteFile(path, []byte("[server\nrun_mode = \"bad\""), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 等待去抖动 timer 触发(200ms)+ 留余量
+	time.Sleep(500 * time.Millisecond)
+
+	if callCount.Load() != 0 {
+		t.Fatalf("onChange 被调用了 %d 次,期望 0(非法配置不应触发回调)", callCount.Load())
+	}
+
+	entries := recorded.All()
+	if len(entries) == 0 {
+		t.Fatal("期望记录到错误日志,但没有任何日志输出")
+	}
+	found := false
+	for _, e := range entries {
+		if e.Level == zapcore.ErrorLevel {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("期望 Error 级别日志,实际日志: %v", entries)
+	}
+}
+
+// TestWatchAndReloadDebouncesRapidChanges 验证在 100ms 内连续触发 3 次文件变更,
+// 去抖动后 onChange 只被调用一次。
+func TestWatchAndReloadDebouncesRapidChanges(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(path, []byte(validToml), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 初始化 reload 指标
+	initReloadMetrics()
+
+	var callbacks reloadCallbacks
+	var callCount atomic.Int32
+	callbacks.add(func(_ *Config) {
+		callCount.Add(1)
+	})
+
+	watchPath(path, &callbacks)
+
+	// 在 100ms 内连续写入 3 次合法配置
+	for i := 0; i < 3; i++ {
+		content := validToml + "\n# change " + string(rune('0'+i)) + "\n"
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	// 等待去抖动 timer 触发(200ms)+ 留余量
+	time.Sleep(500 * time.Millisecond)
+
+	if got := callCount.Load(); got != 1 {
+		t.Fatalf("onChange 被调用了 %d 次,期望 1(去抖动应合并多次变更)", got)
 	}
 }
