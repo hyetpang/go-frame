@@ -18,6 +18,8 @@ steps:
       GOPRIVATE: git-repo.yingxiong.com
       GOPATH: /go
       GOCACHE: /go-cache
+      GIT_PRIVATE_TOKEN:
+        from_secret: git_private_token
     volumes:
       - name: go-path
         path: /go
@@ -27,7 +29,8 @@ steps:
       - go run ./cmd/gorm/gen_gorm.go ./logic/repository/q
       - |
         if [ "$which" = "community" ];then cd ./cmd/community && echo 'community 打包'; else echo 'ultrasdk.center.go 打包';fi
-      - git config --global url."https://01a79611fd2da148b613772507316fc9da87df55:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
+      # 私库访问 token 通过 drone secret 注入,不要硬编码到流水线文件
+      - git config --global url."https://$${GIT_PRIVATE_TOKEN}:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
       - go build -tags=jsoniter -ldflags '-s -w -linkmode "external" -extldflags "-static"' -o main-origin .
       - |
         if [ "$which" = "community" ];then rm -rf ../../conf/app.toml && mv main-origin Dockerfile ./conf ../../ && cd ../../; else echo 'ultrasdk.center.go 打包';fi
@@ -73,11 +76,14 @@ steps:
     image: appleboy/drone-scp
     pull: if-not-exists
     settings:
-      username: root # 远程连接账号
-      password: hero0000
-      port: 12345 # 远程连接端口
+      username:
+        from_secret: test_ssh_user
+      password:
+        from_secret: test_ssh_password
+      port:
+        from_secret: test_ssh_port
       host:
-        - 182.148.53.161
+        from_secret: test_ssh_host
       command_timeout: 2m
       target: /data/docker-build
       source:
@@ -91,11 +97,14 @@ steps:
     image: appleboy/drone-ssh
     pull: if-not-exists
     settings:
-      username: root # 远程连接账号
-      password: hero0000
-      port: 12345 # 远程连接端口
+      username:
+        from_secret: test_ssh_user
+      password:
+        from_secret: test_ssh_password
+      port:
+        from_secret: test_ssh_port
       host:
-        - 182.148.53.161
+        from_secret: test_ssh_host
       command_timeout: 2m
       script_stop: true
       script:
@@ -158,13 +167,16 @@ steps:
       GOPRIVATE: git-repo.yingxiong.com
       GOPATH: /go
       GOCACHE: /go-cache
+      GIT_PRIVATE_TOKEN:
+        from_secret: git_private_token
     volumes:
       - name: go-path
         path: /go
       - name: go-cache
         path: /go-cache
     commands:
-      - git config --global url."https://01a79611fd2da148b613772507316fc9da87df55:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
+      # 私库访问 token 通过 drone secret 注入,不要硬编码到流水线文件
+      - git config --global url."https://$${GIT_PRIVATE_TOKEN}:x-oauth-basic@git-repo.yingxiong.com".insteadOf "https://git-repo.yingxiong.com"
       - go run ./cmd/gorm/gen_gorm.go ./logic/repository/q
       - go build -o ultrasdk_center_latest .
     when:
@@ -179,10 +191,12 @@ steps:
       - name: sshkey
         path: /root/ssh
     settings:
-      user: root # 远程连接账号
-      port: 2009 # 远程连接端口
+      user:
+        from_secret: prod_ssh_user
+      port:
+        from_secret: prod_ssh_port
       host:
-        - 123.249.28.160
+        from_secret: prod_ssh_host
       key_path: /root/ssh/release.key
       command_timeout: 2m
       target: /data/middleground/ultrasdk_center
@@ -200,14 +214,17 @@ steps:
       GOPRIVATE: git-repo.yingxiong.com
       GOPATH: /go
       GOCACHE: /go-cache
+      WECOM_WEBHOOK_URL:
+        from_secret: wecom_webhook_url
     volumes:
       - name: go-path
         path: /go
       - name: go-cache
         path: /go-cache
     commands:
+      # 企业微信 webhook URL 通过 drone secret 注入,不要硬编码 key
       - |
-        curl --request POST --url 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=136c5b28-c5c8-43d7-853d-a3a047025112' --header 'content-type: application/json' --data '{"msgtype":"markdown","markdown":{"content":"打包结果: <font color=\"info\">√</font>\n>打包人: <font color=\"warning\">${DRONE_COMMIT_AUTHOR}</font>\n>仓库名: <font color=\"info\">${DRONE_REPO_NAME}</font>\n>打包分支: <font color=\"warning\">${DRONE_BRANCH}</font>\n>打包详情: [点击查看](${DRONE_BUILD_LINK})"}}'
+        curl --request POST --url "$${WECOM_WEBHOOK_URL}" --header 'content-type: application/json' --data '{"msgtype":"markdown","markdown":{"content":"打包结果: <font color=\"info\">√</font>\n>打包人: <font color=\"warning\">${DRONE_COMMIT_AUTHOR}</font>\n>仓库名: <font color=\"info\">${DRONE_REPO_NAME}</font>\n>打包分支: <font color=\"warning\">${DRONE_BRANCH}</font>\n>打包详情: [点击查看](${DRONE_BUILD_LINK})"}}'
     when:
       event:
         - promote
