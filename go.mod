@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/IBM/sarama v1.48.0
 	github.com/dnwe/otelsarama v0.0.0-20240308230250-9388d9d40bc0
+	github.com/fsnotify/fsnotify v1.10.0
 	github.com/gin-contrib/pprof v1.5.4
 	github.com/gin-contrib/zap v1.1.7
 	github.com/gin-gonic/gin v1.12.0
@@ -61,7 +62,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
-	github.com/fsnotify/fsnotify v1.10.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect

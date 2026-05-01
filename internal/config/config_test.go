@@ -172,6 +172,147 @@ func TestTracingDefaultsRespectExplicitServiceName(t *testing.T) {
 	}
 }
 
+func TestLoadWithEnvMergesEnvironmentOverride(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app.toml")
+	dev := filepath.Join(dir, "app.dev.toml")
+
+	// 基础配置:redis.db=1、http.addr=":8080"
+	if err := os.WriteFile(base, []byte(`
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":8080"
+
+[redis]
+addr = "127.0.0.1:6379"
+db = 1
+
+[mysql]
+connect_string = "user:pass@tcp(127.0.0.1:3306)/db"
+name = "default"
+gorm_log_level = 4
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// dev 覆盖:server.run_mode=dev、http.addr=":9090",其它字段保留 base
+	if err := os.WriteFile(dev, []byte(`
+[server]
+run_mode = "dev"
+
+[http]
+addr = ":9090"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("APP_ENV", "dev")
+	conf, err := LoadWithEnv(base)
+	if err != nil {
+		t.Fatalf("LoadWithEnv 返回错误: %v", err)
+	}
+	// dev 覆盖项生效
+	if conf.Server.RunMode != "dev" {
+		t.Fatalf("server run_mode = %q, want dev (来自 app.dev.toml 覆盖)", conf.Server.RunMode)
+	}
+	if conf.HTTP.Addr != ":9090" {
+		t.Fatalf("http addr = %q, want :9090 (来自 app.dev.toml 覆盖)", conf.HTTP.Addr)
+	}
+	// base 未被覆盖项保留
+	if conf.Redis.DB != 1 {
+		t.Fatalf("redis db = %d, want 1 (来自 app.toml 基础配置)", conf.Redis.DB)
+	}
+	if len(conf.MySQL) != 1 || conf.MySQL[0].Name != "default" {
+		t.Fatalf("mysql config = %+v, want one default config from base", conf.MySQL)
+	}
+	// configFilePath 仍指向基础文件,保持外部可观测语义
+	if conf.ConfigFilePath() != base {
+		t.Fatalf("ConfigFilePath = %q, want base %q", conf.ConfigFilePath(), base)
+	}
+}
+
+func TestLoadWithEnvWithoutEnvFallsBackToBase(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(base, []byte(`
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":8080"
+
+[redis]
+addr = "127.0.0.1:6379"
+db = 0
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// APP_ENV 未设置时,应等价 Load(base)
+	t.Setenv("APP_ENV", "")
+	conf, err := LoadWithEnv(base)
+	if err != nil {
+		t.Fatalf("LoadWithEnv 返回错误: %v", err)
+	}
+	if conf.Server.RunMode != "prod" {
+		t.Fatalf("server run_mode = %q, want prod", conf.Server.RunMode)
+	}
+}
+
+func TestLoadWithEnvSkipsMissingOverlay(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(base, []byte(`
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":8080"
+
+[redis]
+addr = "127.0.0.1:6379"
+db = 0
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// staging 环境覆盖文件不存在时不应报错,直接使用 base
+	t.Setenv("APP_ENV", "staging")
+	conf, err := LoadWithEnv(base)
+	if err != nil {
+		t.Fatalf("LoadWithEnv 在 overlay 不存在时不应报错, got: %v", err)
+	}
+	if conf.Server.RunMode != "prod" {
+		t.Fatalf("server run_mode = %q, want prod", conf.Server.RunMode)
+	}
+}
+
+func TestUnmarshalMySQLDetectsConfigByExplicitFields(t *testing.T) {
+	// 仅给 connect_string,验证不再依赖结构体相等比较来识别"是否有配置"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(path, []byte(`
+[mysql]
+connect_string = "user:pass@tcp(127.0.0.1:3306)/db"
+name = "default"
+gorm_log_level = 4
+gorm_log_ignore_record_not_found_error = false
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	conf, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load 返回错误: %v", err)
+	}
+	if len(conf.MySQL) != 1 {
+		t.Fatalf("mysql config count = %d, want 1", len(conf.MySQL))
+	}
+	if conf.MySQL[0].Name != "default" {
+		t.Fatalf("mysql name = %q, want default", conf.MySQL[0].Name)
+	}
+}
+
 func TestLoadExampleConfigs(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
