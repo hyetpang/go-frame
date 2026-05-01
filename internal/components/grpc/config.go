@@ -9,6 +9,9 @@ import (
 
 type config = frameconfig.GRPC
 
+// frameTLSConfig 暴露给本包内部 helper 使用,屏蔽 frameconfig 直接依赖。
+type frameTLSConfig = frameconfig.TLSConfig
+
 // 初始化config
 func newConfig(conf *config) (*config, error) {
 	if err := common.Validate(conf); err != nil {

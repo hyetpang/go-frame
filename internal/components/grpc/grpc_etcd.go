@@ -78,10 +78,16 @@ func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 	if err != nil {
 		return nil, fmt.Errorf("创建etcd服务解析器对象出错: %w", err)
 	}
+	creds, err := buildClientCreds(&conf.ClientTLS)
+	if err != nil {
+		return nil, err
+	}
 	clients := make(map[string]*grpc.ClientConn, len(conf.ServiceNames))
 	for _, serviceName := range conf.ServiceNames {
-		conn, err := newClient(etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver)
+		conn, err := newClient(etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver, creds)
 		if err != nil {
+			// 已建立的 conn 由 fx StopHook 在应用关闭时统一回收;
+			// 此处不在 fx 启动前显式关闭,避免破坏现有的连接生命周期管理。
 			return nil, fmt.Errorf("创建grpc客户端 %s 失败: %w", serviceName, err)
 		}
 		clients[serviceName] = conn

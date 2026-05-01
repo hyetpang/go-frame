@@ -67,6 +67,36 @@ service_names = [
     "Hello",
 ] # 指定当前启动的服务名字或者客户端要解析的服务名字,这个仅client有效，在grpc server启动的时候服务名字会打印在控制台,不使用etcd作为服务发现，可不填
 
+# grpc server TLS 配置,enable=false 时走明文 (向后兼容)
+# 启用时必须配置 cert_file 与 key_file;若同时配置 ca_file 则强制 mTLS (RequireAndVerifyClientCert)
+[grpc.server_tls]
+enable = false
+cert_file = ""    # 服务端证书 PEM 路径
+key_file = ""     # 服务端私钥 PEM 路径
+ca_file = ""      # 可选: 校验客户端证书的 CA,设置后启用 mTLS
+
+# grpc client TLS 配置,enable=false 时走明文
+# 公网/跨网调用强烈建议启用 TLS 防止凭据/PII 流量被嗅探
+[grpc.client_tls]
+enable = false
+ca_file = ""              # 可选: 校验服务端证书的 CA,留空使用系统根证书
+cert_file = ""            # 可选: 启用 mTLS 时使用的客户端证书
+key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
+server_name = ""          # SNI / 证书 CommonName 校验,默认从 addr 解析
+insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启
+
 
 [etcd]
 addresses = "10.22.12.89:2379" # etcd地址，多个etcd使用逗号分隔
+username = ""                  # 可选: etcd 鉴权用户名
+password = ""                  # 可选: etcd 鉴权密码
+
+# etcd 客户端 TLS,enable=false 时走明文 (向后兼容)
+# etcd 是服务发现核心,生产环境强烈建议启用 TLS+认证防止恶意 endpoint 注册
+[etcd.tls]
+enable = false
+ca_file = ""              # 校验 etcd 服务端证书的 CA
+cert_file = ""            # 可选: 启用 mTLS 时使用的客户端证书
+key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
+server_name = ""
+insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启

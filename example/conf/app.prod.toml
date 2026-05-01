@@ -52,8 +52,35 @@ address = ""
 service_prefix = "grpc_services"
 service_names = []
 
+# 生产环境强烈建议启用 TLS:把 enable 改 true 并填入证书/CA 路径
+# enable=true 时 cert_file 与 key_file 必填;ca_file 设置后启用 mTLS
+[grpc.server_tls]
+enable = false
+cert_file = ""
+key_file = ""
+ca_file = ""
+
+[grpc.client_tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false
+
 [etcd]
 addresses = "127.0.0.1:2379"
+username = ""
+password = ""
+
+# 生产环境强烈建议启用 etcd TLS+认证,防止恶意 endpoint 注册劫持 gRPC 调用
+[etcd.tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false
 
 [kafka]
 addr = ""

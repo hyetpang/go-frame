@@ -1,7 +1,11 @@
 package config
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -92,13 +96,100 @@ type ZapLog struct {
 }
 
 type GRPC struct {
-	Address       string   `mapstructure:"address"`
-	ServicePrefix string   `mapstructure:"service_prefix"`
-	ServiceNames  []string `mapstructure:"service_names"`
+	Address       string    `mapstructure:"address"`
+	ServicePrefix string    `mapstructure:"service_prefix"`
+	ServiceNames  []string  `mapstructure:"service_names"`
+	ServerTLS     TLSConfig `mapstructure:"server_tls"`
+	ClientTLS     TLSConfig `mapstructure:"client_tls"`
 }
 
 type Etcd struct {
-	Addresses string `mapstructure:"addresses" validate:"required"`
+	Addresses string    `mapstructure:"addresses" validate:"required"`
+	Username  string    `mapstructure:"username"`
+	Password  string    `mapstructure:"password"`
+	TLS       TLSConfig `mapstructure:"tls"`
+}
+
+// TLSConfig 是 gRPC、etcd 等组件共用的 TLS 选项。
+// Enable=false 时整个 TLS 关闭,保持向后兼容。
+type TLSConfig struct {
+	CAFile             string `mapstructure:"ca_file"`
+	CertFile           string `mapstructure:"cert_file"`
+	KeyFile            string `mapstructure:"key_file"`
+	ServerName         string `mapstructure:"server_name"`
+	Enable             bool   `mapstructure:"enable"`
+	InsecureSkipVerify bool   `mapstructure:"insecure_skip_verify"`
+}
+
+// IsEnabled 返回是否启用 TLS。
+func (c *TLSConfig) IsEnabled() bool {
+	return c != nil && c.Enable
+}
+
+// BuildClientTLS 构建客户端使用的 *tls.Config。
+// 调用前应确认 IsEnabled()==true。
+func (c *TLSConfig) BuildClientTLS() (*tls.Config, error) {
+	if c == nil || !c.Enable {
+		return nil, nil
+	}
+	tlsCfg := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		ServerName:         c.ServerName,
+		InsecureSkipVerify: c.InsecureSkipVerify, // #nosec G402 -- 由调用方在配置中显式开启
+	}
+	if c.CAFile != "" {
+		caPEM, err := os.ReadFile(c.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("读取 CA 证书 %s 出错: %w", c.CAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("CA 证书 %s 解析失败", c.CAFile)
+		}
+		tlsCfg.RootCAs = pool
+	}
+	if c.CertFile != "" || c.KeyFile != "" {
+		if c.CertFile == "" || c.KeyFile == "" {
+			return nil, errors.New("TLS cert_file 与 key_file 必须同时配置")
+		}
+		cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("加载客户端证书出错: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+	return tlsCfg, nil
+}
+
+// BuildServerTLS 构建服务端使用的 *tls.Config(必须配置 cert_file 与 key_file)。
+func (c *TLSConfig) BuildServerTLS() (*tls.Config, error) {
+	if c == nil || !c.Enable {
+		return nil, nil
+	}
+	if c.CertFile == "" || c.KeyFile == "" {
+		return nil, errors.New("启用 TLS 时必须配置 cert_file 与 key_file")
+	}
+	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("加载服务端证书出错: %w", err)
+	}
+	tlsCfg := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+	}
+	if c.CAFile != "" {
+		caPEM, err := os.ReadFile(c.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("读取 CA 证书 %s 出错: %w", c.CAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("CA 证书 %s 解析失败", c.CAFile)
+		}
+		tlsCfg.ClientCAs = pool
+		tlsCfg.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+	return tlsCfg, nil
 }
 
 type Kafka struct {

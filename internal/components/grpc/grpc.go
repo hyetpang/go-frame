@@ -16,6 +16,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -75,7 +76,11 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.ClientC
 	if len(conf.Address) < 1 {
 		return nil, errors.New("grpc客户端必须配置监听地址")
 	}
-	return newClient(conf.Address, lc, zapLog, nil)
+	creds, err := buildClientCreds(&conf.ClientTLS)
+	if err != nil {
+		return nil, err
+	}
+	return newClient(conf.Address, lc, zapLog, nil, creds)
 }
 
 func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *config, error) {
@@ -88,11 +93,12 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 	}
 	registerGRPCMetrics()
 	logger := grpcLogger(zapLog)
-	s := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		serverMetrics.UnaryServerInterceptor(),
-		grpc_logging.UnaryServerInterceptor(logger, grpc_logging.WithLevels(grpc_logging.DefaultServerCodeToLevel)),
-		grpc_recovery.UnaryServerInterceptor(),
-	),
+	serverOpts := []grpc.ServerOption{
+		grpc.ChainUnaryInterceptor(
+			serverMetrics.UnaryServerInterceptor(),
+			grpc_logging.UnaryServerInterceptor(logger, grpc_logging.WithLevels(grpc_logging.DefaultServerCodeToLevel)),
+			grpc_recovery.UnaryServerInterceptor(),
+		),
 		grpc.ChainStreamInterceptor(
 			serverMetrics.StreamServerInterceptor(),
 			grpc_logging.StreamServerInterceptor(logger, grpc_logging.WithLevels(grpc_logging.DefaultServerCodeToLevel)),
@@ -104,7 +110,16 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 			MaxConnectionAgeGrace: time.Second * 20,
 			Time:                  time.Second * 60,
 			Timeout:               time.Second * 20,
-		}))
+		}),
+	}
+	if conf.ServerTLS.IsEnabled() {
+		tlsCfg, terr := conf.ServerTLS.BuildServerTLS()
+		if terr != nil {
+			return nil, nil, nil, fmt.Errorf("构建 grpc server TLS 配置出错: %w", terr)
+		}
+		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
+	}
+	s := grpc.NewServer(serverOpts...)
 	lis, err := net.Listen("tcp", conf.Address)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("监听地址出错 %s: %w", conf.Address, err)
@@ -114,11 +129,27 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 	return s, lis, conf, nil
 }
 
-func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder) (*grpc.ClientConn, error) {
+// buildClientCreds 根据配置返回 grpc 客户端使用的 TransportCredentials。
+// 未启用 TLS 时回退到 insecure,保持向后兼容。
+func buildClientCreds(tlsConf *frameTLSConfig) (credentials.TransportCredentials, error) {
+	if tlsConf == nil || !tlsConf.IsEnabled() {
+		return insecure.NewCredentials(), nil
+	}
+	cfg, err := tlsConf.BuildClientTLS()
+	if err != nil {
+		return nil, fmt.Errorf("构建 grpc client TLS 配置出错: %w", err)
+	}
+	return credentials.NewTLS(cfg), nil
+}
+
+func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder, creds credentials.TransportCredentials) (*grpc.ClientConn, error) {
+	if creds == nil {
+		creds = insecure.NewCredentials()
+	}
 	registerGRPCMetrics()
 	logger := grpcLogger(zapLog)
 	options := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                time.Second * 60,

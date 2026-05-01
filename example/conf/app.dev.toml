@@ -63,8 +63,20 @@ address = ""
 service_prefix = "grpc_services"
 service_names = ["Hello"]
 
+# 开发环境默认明文,如需联调 TLS 把 enable 改 true 并提供证书路径
+[grpc.server_tls]
+enable = false
+
+[grpc.client_tls]
+enable = false
+
 [etcd]
 addresses = "127.0.0.1:2379"
+username = ""
+password = ""
+
+[etcd.tls]
+enable = false
 
 [kafka]
 addr = ""

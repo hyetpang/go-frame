@@ -16,6 +16,10 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (*clientv3.Client, e
 	if err := common.Validate(conf); err != nil {
 		return nil, fmt.Errorf("etcd配置验证不通过: %w", err)
 	}
+	tlsCfg, err := conf.TLS.BuildClientTLS()
+	if err != nil {
+		return nil, fmt.Errorf("构建 etcd TLS 配置出错: %w", err)
+	}
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            strings.Split(conf.Addresses, ","),
 		AutoSyncInterval:     0,
@@ -27,6 +31,9 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (*clientv3.Client, e
 		RejectOldCluster:     false,
 		Logger:               zapLog,
 		PermitWithoutStream:  false,
+		Username:             conf.Username,
+		Password:             conf.Password,
+		TLS:                  tlsCfg,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("创建etcd客户端出错 addresses=%s: %w", conf.Addresses, err)
