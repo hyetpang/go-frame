@@ -51,30 +51,27 @@ func TestTryGenNanoID_ValidatorError(t *testing.T) {
 	}
 }
 
-func TestTryGenNanoID_ZeroTryCountTreatedAsOne(t *testing.T) {
-	called := 0
-	id, err := TryGenNanoIDFromAlphaNumber(3, 0, func(string) (bool, error) {
-		called++
-		return true, nil
-	})
-	if err != nil {
-		t.Fatal(err)
+// tryCount=-1、0、1 均应返回有效 ID（统一当作至少尝试一次）
+func TestTryGenNanoID_NegativeAndZeroTryCountReturnValidID(t *testing.T) {
+	tests := []struct {
+		name     string
+		tryCount int
+	}{
+		{"tryCount=-1", -1},
+		{"tryCount=0", 0},
+		{"tryCount=1", 1},
 	}
-	if len(id) != 3 {
-		t.Errorf("len = %d, want 3", len(id))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, err := TryGenNanoIDFromAlphaNumber(6, tt.tryCount, func(string) (bool, error) {
+				return true, nil
+			})
+			if err != nil {
+				t.Fatalf("tryCount=%d: unexpected error: %v", tt.tryCount, err)
+			}
+			if len(id) != 6 {
+				t.Errorf("tryCount=%d: len = %d, want 6", tt.tryCount, len(id))
+			}
+		})
 	}
-	if called != 1 {
-		t.Errorf("validator called %d times, want 1", called)
-	}
-}
-
-func TestTryGenNanoID_NegativeTryCountPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on negative tryCount")
-		}
-	}()
-	_, _ = TryGenNanoIDFromAlphaNumber(3, -1, func(string) (bool, error) {
-		return true, nil
-	})
 }

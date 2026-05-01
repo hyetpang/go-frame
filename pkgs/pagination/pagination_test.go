@@ -40,3 +40,22 @@ func TestPagination_GetOffset(t *testing.T) {
 		}
 	})
 }
+
+func TestGetOffsetReturnsZeroWhenPageIsZero(t *testing.T) {
+	tests := []struct {
+		name string
+		page int
+	}{
+		{"page=0", 0},
+		{"page=-1", -1},
+		{"page=-100", -100},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pagination{Page: tt.page, PageSize: 10}
+			if got := p.GetOffset(); got != 0 {
+				t.Errorf("GetOffset() = %d, want 0 when page=%d", got, tt.page)
+			}
+		})
+	}
+}

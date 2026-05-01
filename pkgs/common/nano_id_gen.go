@@ -32,10 +32,8 @@ func GenID() string {
 
 // size 表示生成的id长度, tryCount表示尝试次数,isValid验证生成的id是否有效
 func TryGenNanoIDFromAlphaNumber(size, tryCount int, isValid func(id string) (bool, error)) (string, error) {
-	if tryCount < 0 {
-		panic("尝试次数不能小于0")
-	}
-	if tryCount == 0 {
+	// tryCount <= 0 统一当作 1 处理，保证至少尝试一次
+	if tryCount <= 0 {
 		tryCount = 1
 	}
 	for i := 0; i < tryCount; i++ {

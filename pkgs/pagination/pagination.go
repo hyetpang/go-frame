@@ -13,6 +13,10 @@ type Pagination struct {
 const defaultPageSize = 20
 
 func (op *Pagination) GetOffset() int {
+	// Page < 1 时统一返回 0，避免向 gorm 传入负数 offset
+	if op.Page < 1 {
+		return 0
+	}
 	return (op.Page - 1) * op.GetPageSize()
 }
 
