@@ -2,9 +2,11 @@
 package logs
 
 import (
+	"context"
 	"runtime"
 	"sync/atomic"
 
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +36,28 @@ func callNoticeHook(callerSkip int, msg string, fields ...zap.Field) {
 	_, filename, line, _ := runtime.Caller(callerSkip + 1)
 	hook := *hookPtr
 	go hook(msg, filename, line, fields...)
+}
+
+// Ctx 从 context 中提取 OpenTelemetry SpanContext,附加 trace_id/span_id
+// zap 字段后返回新的 logger。
+//
+// 调用方应在 handler/interceptor 中将带 span 的 context 一路向下传递,
+// 然后用 logs.Ctx(ctx).Info(...) 打日志,保证日志可与 trace 关联。
+//
+// 当 ctx 没有有效 span(例如未启用 tracing 或调用方没传 ctx)时,
+// 直接返回 zap.L() 全局 logger,开销与原 logs.Info 等价。
+func Ctx(ctx context.Context) *zap.Logger {
+	if ctx == nil {
+		return zap.L()
+	}
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return zap.L()
+	}
+	return zap.L().With(
+		zap.String("trace_id", sc.TraceID().String()),
+		zap.String("span_id", sc.SpanID().String()),
+	)
 }
 
 func Error(msg string, fields ...zap.Field) {
