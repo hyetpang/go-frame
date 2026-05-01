@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/lognotice"
 	"go.uber.org/zap"
 )
@@ -30,11 +30,12 @@ func recoveryWithZap(logger *zap.Logger, stack bool) gin.HandlerFunc {
 					}
 				}
 				lognotice.Notice("[Recovery from panic]")
-				httpRequest, _ := httputil.DumpRequest(c.Request, false)
+				// 复用 sensitiveHeaders 白名单脱敏,防止 Cookie/Authorization 等敏感头落日志或外发到 webhook
+				httpRequest := common.SanitizeRequestForLog(c.Request)
 				if brokenPipe {
 					logger.Error(c.Request.URL.Path,
 						zap.Any("error", err),
-						zap.String("request", string(httpRequest)),
+						zap.String("request", httpRequest),
 					)
 					// If the connection is dead, we can't write a status to it.
 					if e, ok := err.(error); ok {
@@ -49,14 +50,14 @@ func recoveryWithZap(logger *zap.Logger, stack bool) gin.HandlerFunc {
 					logger.Error("[Recovery from panic]",
 						zap.Time("time", time.Now()),
 						zap.Any("error", err),
-						zap.String("request", string(httpRequest)),
+						zap.String("request", httpRequest),
 						zap.String("stack", string(debug.Stack())),
 					)
 				} else {
 					logger.Error("[Recovery from panic]",
 						zap.Time("time", time.Now()),
 						zap.Any("error", err),
-						zap.String("request", string(httpRequest)),
+						zap.String("request", httpRequest),
 					)
 				}
 				c.AbortWithStatus(http.StatusInternalServerError)

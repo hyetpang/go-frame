@@ -30,9 +30,14 @@ type telegramSenderMsgRsp struct {
 
 // 通知
 func (telegram *telegramSender) Send(name, url string, msg noticeContent) error {
+	// telegram 使用 parse_mode=HTML,任何用户输入都需要 HTML 转义,
+	// 否则会被解析为 <a>/<b> 等标签,可能伪造钓鱼链接或破坏消息结构
+	safeName := escapeHTML(name)
+	safeMsg := escapeHTML(msg.msg)
+	safeFilename := escapeHTML(msg.filename)
 	params := make(map[string]interface{}, 3)
 	params["chat_id"] = telegram.chatID
-	params["text"] = "服务[<u>" + name + "</u>]出错啦,请排查问题,出错概览如下:\n描述:" + msg.msg + "\n代码行数:" + msg.filename + ":" + strconv.Itoa(msg.line) + "\n详情请查看具体日志文件"
+	params["text"] = "服务[<u>" + safeName + "</u>]出错啦,请排查问题,出错概览如下:\n描述:" + safeMsg + "\n代码行数:" + safeFilename + ":" + strconv.Itoa(msg.line) + "\n详情请查看具体日志文件"
 	params["disable_notification"] = true
 	params["parse_mode"] = "HTML"
 	response := new(telegramSenderMsgRsp)

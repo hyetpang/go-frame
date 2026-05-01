@@ -23,10 +23,14 @@ type wecomSendMsgRsp struct {
 }
 
 func (wecomSender *wecomSender) Send(name, url string, msg noticeContent) error {
+	// 用户输入字段经 HTML 转义,防止 <font>/@all 等富文本注入与超长刷屏
+	safeName := escapeHTML(name)
+	safeMsg := escapeHTML(msg.msg)
+	safeFilename := escapeHTML(msg.filename)
 	params := make(map[string]interface{}, 2)
 	params["msgtype"] = "markdown"
 	params["markdown"] = map[string]interface{}{
-		"content": "服务[<font color=\"warning\">" + name + "</font>]出错啦,请排查问题,出错概览如下:\n>描述:" + msg.msg + "\n>代码行数:<font color=\"warning\">" + msg.filename + ":" + strconv.Itoa(msg.line) + "</font>" + "\n详情请查看具体日志文件.",
+		"content": "服务[<font color=\"warning\">" + safeName + "</font>]出错啦,请排查问题,出错概览如下:\n>描述:" + safeMsg + "\n>代码行数:<font color=\"warning\">" + safeFilename + ":" + strconv.Itoa(msg.line) + "</font>" + "\n详情请查看具体日志文件.",
 	}
 	response := new(wecomSendMsgRsp)
 	err := gout.POST(url).SetTimeout(time.Second * 5).SetJSON(params).BindJSON(&response).Do()
