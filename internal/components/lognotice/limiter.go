@@ -15,6 +15,7 @@ type noticeLimiter struct {
 type limitedNotice struct {
 	content   noticeContent
 	expiresAt time.Time
+	addedAt   time.Time // 用于 LRU 淘汰:记录 entry 写入 pending map 的时间
 	repeats   int
 }
 
@@ -58,11 +59,24 @@ func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg
 
 	_ = sender.Send(serviceName, url, msg)
 	if len(limiter.pending) >= limiter.maxKeys {
-		return
+		// pending map 已满,淘汰 addedAt 最早的 entry,确保新 key 能被限流聚合
+		var oldestKey string
+		var oldestTime time.Time
+		for k, v := range limiter.pending {
+			if oldestKey == "" || v.addedAt.Before(oldestTime) {
+				oldestKey = k
+				oldestTime = v.addedAt
+			}
+		}
+		delete(limiter.pending, oldestKey)
+		if lognoticeEvicted != nil {
+			lognoticeEvicted.Inc()
+		}
 	}
 	limiter.pending[key] = &limitedNotice{
 		content:   msg,
 		expiresAt: current.Add(limiter.window),
+		addedAt:   current,
 	}
 }
 

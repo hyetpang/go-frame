@@ -57,6 +57,48 @@ func TestRateLimiterDoesNotSuppressDifferentMessages(t *testing.T) {
 	}
 }
 
+func TestLimiterEvictsOldestOnOverflow(t *testing.T) {
+	// maxKeys=2:先 put k1/k2,等 1ms 后 put k3,验证 k1(最旧)被淘汰,k2/k3 仍在 pending
+	sender := &fakeSender{}
+
+	tick := time.Unix(1000, 0)
+	limiter := newNoticeLimiter(time.Minute, func() time.Time { return tick })
+	limiter.maxKeys = 2
+
+	k1 := noticeContent{msg: "k1", filename: "f.go", line: 1}
+	k2 := noticeContent{msg: "k2", filename: "f.go", line: 2}
+	k3 := noticeContent{msg: "k3", filename: "f.go", line: 3}
+
+	// put k1
+	limiter.handle(sender, "svc", "url", k1)
+	// 推进时钟 1ms,让 k2 的 addedAt 晚于 k1
+	tick = tick.Add(time.Millisecond)
+	// put k2
+	limiter.handle(sender, "svc", "url", k2)
+
+	if len(limiter.pending) != 2 {
+		t.Fatalf("after k1+k2: pending len = %d, want 2", len(limiter.pending))
+	}
+
+	// 推进时钟 1ms,让 k3 的 addedAt 更晚
+	tick = tick.Add(time.Millisecond)
+	// put k3,此时 map 已满,应淘汰最旧的 k1
+	limiter.handle(sender, "svc", "url", k3)
+
+	if len(limiter.pending) != 2 {
+		t.Fatalf("after k3: pending len = %d, want 2", len(limiter.pending))
+	}
+	if _, ok := limiter.pending[k1.key()]; ok {
+		t.Fatal("k1 应被 LRU 淘汰,但仍在 pending 中")
+	}
+	if _, ok := limiter.pending[k2.key()]; !ok {
+		t.Fatal("k2 应保留在 pending 中")
+	}
+	if _, ok := limiter.pending[k3.key()]; !ok {
+		t.Fatal("k3 应写入 pending 中")
+	}
+}
+
 func TestNoticeLimiterUsesConfigWindowAndCanBeDisabled(t *testing.T) {
 	conf := &config{
 		LimitWindowSeconds: 2,
