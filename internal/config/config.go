@@ -84,13 +84,14 @@ type SMS struct {
 }
 
 type LogNotice struct {
-	Notice             string `mapstructure:"notice" validate:"required"`
-	Name               string `mapstructure:"name" validate:"required"`
-	ChatID             string `mapstructure:"chat_id" validate:"required_if=NoticeType 4"`
-	NoticeType         int    `mapstructure:"notice_type" validate:"required,oneof=1 2 3 4"`
-	LimitWindowSeconds int    `mapstructure:"limit_window_seconds"`
-	LimitMaxKeys       int    `mapstructure:"limit_max_keys"`
-	IsLimitDisabled    bool   `mapstructure:"is_limit_disabled"`
+	Notice             string   `mapstructure:"notice" validate:"required"`
+	Name               string   `mapstructure:"name" validate:"required"`
+	ChatID             string   `mapstructure:"chat_id" validate:"required_if=NoticeType 4"`
+	AllowedHosts       []string `mapstructure:"allowed_hosts"`
+	NoticeType         int      `mapstructure:"notice_type" validate:"required,oneof=1 2 3 4"`
+	LimitWindowSeconds int      `mapstructure:"limit_window_seconds"`
+	LimitMaxKeys       int      `mapstructure:"limit_max_keys"`
+	IsLimitDisabled    bool     `mapstructure:"is_limit_disabled"`
 }
 
 type ZapLog struct {

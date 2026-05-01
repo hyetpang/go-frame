@@ -66,6 +66,7 @@ notice = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key"
 limit_window_seconds = 60                                                                             # 同一错误通知聚合窗口，单位秒
 limit_max_keys = 1024                                                                                 # 聚合窗口内最多保留的错误摘要数量
 is_limit_disabled = false                                                                             # 是否关闭错误通知限流聚合
+allowed_hosts = ["qyapi.weixin.qq.com", "open.feishu.cn", "api.telegram.org"]                         # 通知 webhook 域名白名单(后缀匹配)
 
 
 [zap_log] # 日志配置不是必传，不配置，默认的日志文件路径在可执行程序所在目录下的log目录下，level是0

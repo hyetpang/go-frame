@@ -29,6 +29,9 @@ type notice struct {
 
 func newNotice(conf *config, lc fx.Lifecycle) (lognoticepkg.Notifier, error) {
 	initMetrics()
+	if err := validateWebhookURL(conf.Notice, conf.AllowedHosts); err != nil {
+		return nil, fmt.Errorf("log_notice webhook 校验失败: %w", err)
+	}
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
