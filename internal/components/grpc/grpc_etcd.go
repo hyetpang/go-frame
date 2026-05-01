@@ -82,8 +82,13 @@ func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 	for _, serviceName := range conf.ServiceNames {
 		conn, err := newClient(etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver, creds)
 		if err != nil {
-			// 已建立的 conn 由 fx StopHook 在应用关闭时统一回收;
-			// 此处不在 fx 启动前显式关闭,避免破坏现有的连接生命周期管理。
+			// 第 N 个失败时,显式关闭已建立的前 N-1 个 conn,
+			// 避免 fx 不进入启动阶段导致 lc.StopHook 不触发产生连接泄漏。
+			for name, c := range clients {
+				if cerr := c.Close(); cerr != nil {
+					logs.Warn("回收grpc客户端连接失败", zap.String("服务名", name), zap.Error(cerr))
+				}
+			}
 			return nil, fmt.Errorf("创建grpc客户端 %s 失败: %w", serviceName, err)
 		}
 		clients[serviceName] = conn
