@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/pprof"
@@ -109,8 +110,8 @@ func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
 		router.GET(conf.DocPath, ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 	if conf.IsPprof {
-		if conf.PprofUsername == "" || conf.PprofPassword == "" {
-			return nil, nil, errors.New("开启pprof时必须配置pprof_username和pprof_password")
+		if err := validatePprofCredentials(conf.PprofUsername, conf.PprofPassword); err != nil {
+			return nil, nil, err
 		}
 		pprofRouter := router.Group("", gin.BasicAuth(gin.Accounts{
 			conf.PprofUsername: conf.PprofPassword,
@@ -122,6 +123,39 @@ func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
 		}
 	}
 	return router, conf, nil
+}
+
+const minPprofPasswordLen = 12
+
+// pprofWeakCredentials 列出禁用的常见弱用户名/密码;比对时统一小写,避免 Admin/SECRET 等大小写绕过。
+var pprofWeakCredentials = map[string]struct{}{
+	"":          {},
+	"admin":     {},
+	"root":      {},
+	"secret":    {},
+	"password":  {},
+	"change_me": {},
+	"changeme":  {},
+}
+
+func isWeakPprofCredential(s string) bool {
+	_, bad := pprofWeakCredentials[strings.ToLower(s)]
+	return bad
+}
+
+// validatePprofCredentials 在启用 pprof 时强制要求强口令,避免示例配置直接上生产。
+// 规则:用户名/密码不能命中弱口令列表(大小写不敏感);密码长度必须 >= 12。
+func validatePprofCredentials(username, password string) error {
+	if isWeakPprofCredential(username) {
+		return fmt.Errorf("pprof_username 不能为空或使用常见弱口令 (admin/root 等),当前值: %q", username)
+	}
+	if isWeakPprofCredential(password) {
+		return errors.New("pprof_password 不能为空或使用 admin/secret/CHANGE_ME 等示例值,请在配置中替换")
+	}
+	if len(password) < minPprofPasswordLen {
+		return fmt.Errorf("pprof_password 长度必须 >= %d,当前长度 %d", minPprofPasswordLen, len(password))
+	}
+	return nil
 }
 
 func noRoute(ctx *gin.Context) {

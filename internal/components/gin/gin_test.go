@@ -24,11 +24,15 @@ func TestNewGinReturnsErrorWhenPprofHasNoAuth(t *testing.T) {
 }
 
 func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
+	const (
+		pprofUser = "ops-team"
+		pprofPass = "Strong!Pprof#Password" // 长度 >= 12,且不在弱口令列表中
+	)
 	conf := &config{
 		Addr:          "127.0.0.1:0",
 		IsPprof:       true,
-		PprofUsername: "admin",
-		PprofPassword: "secret",
+		PprofUsername: pprofUser,
+		PprofPassword: pprofPass,
 	}
 
 	router, _, err := newGin(zap.NewNop(), conf)
@@ -44,11 +48,41 @@ func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
-	req.SetBasicAuth("admin", "secret")
+	req.SetBasicAuth(pprofUser, pprofPass)
 	rsp = httptest.NewRecorder()
 	router.ServeHTTP(rsp, req)
 	if rsp.Code != http.StatusOK {
 		t.Fatalf("authenticated pprof status = %d, want %d", rsp.Code, http.StatusOK)
+	}
+}
+
+func TestNewGinRejectsWeakPprofPassword(t *testing.T) {
+	cases := []struct {
+		name     string
+		username string
+		password string
+	}{
+		{"empty password", "ops-team", ""},
+		{"placeholder password", "ops-team", "CHANGE_ME"},
+		{"placeholder password lowercase", "ops-team", "change_me"},
+		{"common weak password", "ops-team", "secret"},
+		{"common weak password mixed case", "ops-team", "Secret"},
+		{"too short", "ops-team", "abc12345"},
+		{"weak username admin", "admin", "Strong!Pprof#Password"},
+		{"weak username uppercase", "ROOT", "Strong!Pprof#Password"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			conf := &config{
+				Addr:          "127.0.0.1:0",
+				IsPprof:       true,
+				PprofUsername: tc.username,
+				PprofPassword: tc.password,
+			}
+			if _, _, err := newGin(zap.NewNop(), conf); err == nil {
+				t.Fatalf("expected weak pprof credentials to be rejected")
+			}
+		})
 	}
 }
 
