@@ -117,3 +117,11 @@ insecure_skip_verify = false
 [gout]
 debug = false
 timeout = 5
+
+[tracing]
+enable = false                                # 是否启用 OpenTelemetry 分布式追踪
+service_name = "myapp"                        # 服务名称，留空时使用 zap_log.service_name
+endpoint = "otel-collector.internal:4317"     # OTLP collector 接收端点（线上请配置内网/TLS）
+protocol = "grpc"                             # http 或 grpc
+sample_ratio = 0.1                            # 采样率，0.0-1.0，线上建议较低采样
+insecure = false                              # 生产环境必须启用 TLS

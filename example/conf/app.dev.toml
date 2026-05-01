@@ -98,3 +98,11 @@ enable = false
 [gout]
 debug = true
 timeout = 5
+
+[tracing]
+enable = false              # 是否启用 OpenTelemetry 分布式追踪
+service_name = "myapp"      # 服务名称，留空时使用 zap_log.service_name
+endpoint = "localhost:4318" # OTLP collector 接收端点
+protocol = "http"           # http 或 grpc
+sample_ratio = 1.0          # 采样率，0.0-1.0
+insecure = true             # 测试环境可设为 true，生产环境配 TLS
