@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/viper"
 )
@@ -57,9 +58,16 @@ type MySQL struct {
 }
 
 type Redis struct {
-	Addr string `mapstructure:"addr" validate:"required"`
-	Pwd  string `mapstructure:"pwd"`
-	DB   int    `mapstructure:"db" validate:"min=0,max=15"`
+	Addr         string    `mapstructure:"addr" validate:"required"`
+	Pwd          string    `mapstructure:"pwd"`
+	Username     string    `mapstructure:"username"` // Redis 6+ ACL 用户名,留空兼容旧版本
+	DB           int       `mapstructure:"db" validate:"min=0,max=15"`
+	PoolSize     int       `mapstructure:"pool_size"`      // 连接池大小,0 时由 applyDefaults 取 10*GOMAXPROCS
+	MinIdleConns int       `mapstructure:"min_idle_conns"` // 最小空闲连接数,0 时取默认 5
+	DialTimeout  int       `mapstructure:"dial_timeout"`   // 拨号超时,单位秒,0 时取默认 5
+	ReadTimeout  int       `mapstructure:"read_timeout"`   // 读超时,单位秒,0 时取默认 5
+	WriteTimeout int       `mapstructure:"write_timeout"`  // 写超时,单位秒,0 时取默认 5
+	TLS          TLSConfig `mapstructure:"tls"`
 }
 
 type Mail struct {
@@ -194,8 +202,12 @@ func (c *TLSConfig) BuildServerTLS() (*tls.Config, error) {
 }
 
 type Kafka struct {
-	Addr     string `mapstructure:"addr" validate:"required"`
-	ClientID string `mapstructure:"client_id"`
+	Addr      string    `mapstructure:"addr" validate:"required"`
+	ClientID  string    `mapstructure:"client_id"`
+	Username  string    `mapstructure:"username"`  // SASL 用户名,留空表示明文连接
+	Password  string    `mapstructure:"password"`  // SASL 密码
+	Mechanism string    `mapstructure:"mechanism"` // PLAIN(默认) / SCRAM-SHA-256 / SCRAM-SHA-512
+	TLS       TLSConfig `mapstructure:"tls"`
 }
 
 type Gout struct {
@@ -212,6 +224,12 @@ const (
 	defaultLogNoticeLimitWindowSeconds = 60
 	defaultLogNoticeLimitMaxKeys       = 1024
 	defaultHTTPMaxBodyBytes      int64 = 10 << 20 // 10 MiB
+	defaultRedisMinIdleConns           = 5
+	defaultRedisDialTimeoutSec         = 5
+	defaultRedisReadTimeoutSec         = 5
+	defaultRedisWriteTimeoutSec        = 5
+	// defaultRedisPoolSizeMultiplier 用于按 GOMAXPROCS 推导 PoolSize:与 go-redis 默认一致 (10*GOMAXPROCS)。
+	defaultRedisPoolSizeMultiplier = 10
 )
 
 func Load(configFile string) (*Config, error) {
@@ -304,6 +322,27 @@ func (conf *Config) applyDefaults() {
 	conf.HTTP.applyDefaults()
 	conf.ZapLog.applyDefaults()
 	conf.LogNotice.applyDefaults()
+	conf.Redis.applyDefaults()
+}
+
+// applyDefaults 给 Redis 连接池/超时未显式配置时填默认值,
+// PoolSize 缺省按 go-redis 推荐取 10*GOMAXPROCS。
+func (conf *Redis) applyDefaults() {
+	if conf.PoolSize == 0 {
+		conf.PoolSize = defaultRedisPoolSizeMultiplier * runtime.GOMAXPROCS(0)
+	}
+	if conf.MinIdleConns == 0 {
+		conf.MinIdleConns = defaultRedisMinIdleConns
+	}
+	if conf.DialTimeout == 0 {
+		conf.DialTimeout = defaultRedisDialTimeoutSec
+	}
+	if conf.ReadTimeout == 0 {
+		conf.ReadTimeout = defaultRedisReadTimeoutSec
+	}
+	if conf.WriteTimeout == 0 {
+		conf.WriteTimeout = defaultRedisWriteTimeoutSec
+	}
 }
 
 func (conf *HTTP) applyDefaults() {

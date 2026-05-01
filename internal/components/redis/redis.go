@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hyetpang/go-frame/internal/constants"
 	"github.com/hyetpang/go-frame/pkgs/common"
@@ -29,10 +30,21 @@ func New(lc fx.Lifecycle, conf *config) (redis.UniversalClient, error) {
 }
 
 func newRedis(conf *config) (redis.UniversalClient, error) {
+	tlsCfg, err := conf.TLS.BuildClientTLS()
+	if err != nil {
+		return nil, fmt.Errorf("构建 redis TLS 配置出错: %w", err)
+	}
 	redisOptions := &redis.Options{
-		Addr:     conf.Addr,
-		Password: conf.Pwd,
-		DB:       conf.DB,
+		Addr:         conf.Addr,
+		Username:     conf.Username,
+		Password:     conf.Pwd,
+		DB:           conf.DB,
+		PoolSize:     conf.PoolSize,
+		MinIdleConns: conf.MinIdleConns,
+		DialTimeout:  time.Duration(conf.DialTimeout) * time.Second,
+		ReadTimeout:  time.Duration(conf.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(conf.WriteTimeout) * time.Second,
+		TLSConfig:    tlsCfg,
 	}
 	redisClient := redis.NewClient(redisOptions)
 	ctx, cancel := context.WithTimeout(context.Background(), constants.CtxTimeOut)

@@ -29,6 +29,20 @@ name = "default"
 addr = "127.0.0.1:6379"
 pwd = ""
 db = 1
+pool_size = 0
+min_idle_conns = 5
+dial_timeout = 5
+read_timeout = 5
+write_timeout = 5
+
+# 生产环境强烈建议启用 redis TLS+ACL,防止凭据/PII 流量被嗅探
+[redis.tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false
 
 [log_notice]
 name = "myapp"
@@ -86,6 +100,18 @@ insecure_skip_verify = false
 [kafka]
 addr = ""
 client_id = "myapp"
+username = ""             # 生产环境强烈建议启用 SASL,留空代表无 SASL(明文/匿名)
+password = ""
+mechanism = "PLAIN"       # PLAIN / SCRAM-SHA-256 / SCRAM-SHA-512
+
+# 生产环境强烈建议启用 SASL_SSL:把 username/password 填入并将 enable 改 true
+[kafka.tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false
 
 [gout]
 debug = false
