@@ -124,4 +124,20 @@ service_name = "myapp"                        # 服务名称，留空时使用 z
 endpoint = "otel-collector.internal:4317"     # OTLP collector 接收端点（线上请配置内网/TLS）
 protocol = "grpc"                             # http 或 grpc
 sample_ratio = 0.1                            # 采样率，0.0-1.0，线上建议较低采样
-insecure = false                              # 生产环境必须启用 TLS
+insecure = false                              # 生产环境必须 false,见下方 [tracing.tls]
+
+# OTLP exporter 鉴权 header,SaaS / 受控 collector 必备
+# [tracing.headers]
+# Authorization = "Bearer YOUR_PROD_TOKEN"
+# X-Api-Key     = "YOUR_PROD_API_KEY"
+
+# 生产环境强烈建议启用 TLS:把 enable 改 true 并填入证书/CA 路径
+# enable=true 时 cert_file 与 key_file 仅在 collector 要求 mTLS 时必填,
+# 普通单向 TLS 留空 cert_file/key_file 即可,ca_file 留空时使用系统根证书
+[tracing.tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false                  # ⚠️ 生产环境严禁开启

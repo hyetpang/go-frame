@@ -232,9 +232,17 @@ type Tracing struct {
 	Protocol string `mapstructure:"protocol" validate:"omitempty,oneof=http grpc"`
 	// SampleRatio 采样率，取值范围 [0.0, 1.0]，留空或 0 时默认 1.0（全采样）。
 	SampleRatio float64 `mapstructure:"sample_ratio" validate:"gte=0,lte=1"`
+	// Headers OTLP exporter 请求附加的鉴权/路由 header，常见用法是写入
+	// "Authorization": "Bearer xxx" 或 collector 要求的 API key。
+	// 对 SaaS collector(Honeycomb/Grafana Cloud/NewRelic 等)是必备项。
+	Headers map[string]string `mapstructure:"headers"`
+	// TLS OTLP exporter 的 TLS 客户端配置，启用后由 TLSConfig 统一构建 *tls.Config。
+	// 与 Insecure=true 互斥，二者同时为真时 newExporter 拒绝启动以避免误配。
+	TLS TLSConfig `mapstructure:"tls"`
 	// Enable 是否启用分布式追踪，关闭时使用 noop TracerProvider 保持向后兼容。
 	Enable bool `mapstructure:"enable"`
 	// Insecure OTLP exporter 是否走明文链路，仅在测试环境置 true。
+	// 生产环境强烈建议改为 false 并配置 [tracing.tls],防止 SQL/参数/header 明文外发。
 	Insecure bool `mapstructure:"insecure"`
 }
 
