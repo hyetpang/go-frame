@@ -144,4 +144,26 @@ service_name = "myapp"          # 服务名称，留空时使用 zap_log.service
 endpoint = "localhost:4318"     # OTLP collector 接收端点
 protocol = "http"               # http 或 grpc
 sample_ratio = 1.0              # 采样率，0.0-1.0
-insecure = true                 # 测试环境可设为 true，生产环境配 TLS
+# ⚠️ 默认安全基线: insecure=false。
+# 本地开发若 collector 不支持 TLS,把 insecure 改为 true(此时下方 [tracing.tls] 必须 enable=false)。
+# 生产环境严禁开启 insecure=true 指向公网 collector — SQL/参数/header 会明文外发。
+insecure = false
+
+# OTLP exporter 鉴权 / 路由 header,常见用法:
+#   - SaaS collector(Honeycomb/Grafana Cloud/NewRelic 等)往往要求 Authorization 或 X-Api-Key
+#   - 自建 collector 用 Authorization: Bearer xxx 做接入鉴权
+# 留空或省略整段表示不附加任何 header
+# [tracing.headers]
+# Authorization = "Bearer YOUR_TOKEN"
+# X-Api-Key     = "YOUR_API_KEY"
+
+# OTLP exporter TLS 配置,enable=false 时与 insecure 字段一同决定明文/TLS。
+# enable=true 与 insecure=true 互斥,启动时会拒绝。
+# 公网/跨网调用强烈建议启用 TLS 防止 trace 内容被嗅探
+[tracing.tls]
+enable = false
+ca_file = ""              # 校验 collector 服务端证书的 CA,留空使用系统根证书
+cert_file = ""            # 可选: 启用 mTLS 时使用的客户端证书
+key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
+server_name = ""          # SNI / 证书 CommonName 校验
+insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启

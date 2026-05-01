@@ -9,7 +9,9 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -26,7 +28,12 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/credentials"
 )
+
+// errInsecureTLSConflict 表示同时开启了 Insecure 与 TLS,这是显然冲突的配置,
+// 必须由用户在 toml 中二选一(本地开发用 insecure=true、生产用 [tracing.tls] enable=true)。
+var errInsecureTLSConflict = errors.New("tracing 配置冲突: insecure=true 与 tls.enable=true 不能同时启用,请二选一")
 
 const (
 	protocolHTTP        = "http"
@@ -46,6 +53,11 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (trace.TracerProvide
 		otel.SetTracerProvider(tp)
 		zapLog.Info("OpenTelemetry tracing 未启用，使用 noop TracerProvider")
 		return tp, nil
+	}
+
+	// 配置冲突的 fail-fast 提前到 buildResource 之前,避免被无关错误(如 schema URL)掩盖
+	if conf.Insecure && conf.TLS.IsEnabled() {
+		return nil, errInsecureTLSConflict
 	}
 
 	res, err := buildResource(conf)
@@ -85,8 +97,46 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (trace.TracerProvide
 		zap.String("protocol", conf.Protocol),
 		zap.Float64("sample_ratio", conf.SampleRatio),
 		zap.Bool("insecure", conf.Insecure),
+		zap.Bool("tls_enabled", conf.TLS.IsEnabled()),
 	)
+	if conf.Insecure && !isLoopbackOrInternalEndpoint(conf.Endpoint) {
+		zapLog.Warn("OTel exporter 配置 insecure=true 但 endpoint 看起来是公网地址,trace 将明文外发",
+			zap.String("endpoint", conf.Endpoint))
+	}
 	return tp, nil
+}
+
+// isLoopbackOrInternalEndpoint 判断 endpoint 是否指向本机 / k8s 内网 / .local 域,
+// 用于在 insecure=true 时只对疑似公网地址打 WARN,避免本地开发噪音。
+func isLoopbackOrInternalEndpoint(endpoint string) bool {
+	if endpoint == "" {
+		return true
+	}
+	// otlptrace endpoint 既可能带 scheme 也可能裸 host:port,这里统一剥离再用 SplitHostPort
+	host := endpoint
+	if idx := strings.Index(host, "://"); idx >= 0 {
+		host = host[idx+3:]
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" || host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified()
+	}
+	// 不带 dot 的纯 hostname 视为内网(docker-compose 服务名 / k8s 同 namespace 短名)
+	if !strings.Contains(host, ".") {
+		return true
+	}
+	// k8s service / local DNS 后缀视为内网
+	if strings.HasSuffix(host, ".svc") || strings.HasSuffix(host, ".local") ||
+		strings.Contains(host, ".svc.") || strings.HasSuffix(host, ".internal") {
+		return true
+	}
+	return false
 }
 
 func buildResource(conf *config) (*sdkresource.Resource, error) {
@@ -100,19 +150,37 @@ func buildResource(conf *config) (*sdkresource.Resource, error) {
 }
 
 func newExporter(conf *config) (*otlptrace.Exporter, error) {
+	// Insecure 与 TLS 同时开启属于明显冲突,提前 fail-fast 避免线上跑起来才发现配置矛盾
+	if conf.Insecure && conf.TLS.IsEnabled() {
+		return nil, errInsecureTLSConflict
+	}
+	tlsCfg, err := conf.TLS.BuildClientTLS()
+	if err != nil {
+		return nil, fmt.Errorf("构建 OTLP exporter TLS 配置出错: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), exporterInitTimeout)
 	defer cancel()
 	switch strings.ToLower(conf.Protocol) {
 	case "", protocolHTTP:
 		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(conf.Endpoint)}
+		if len(conf.Headers) > 0 {
+			opts = append(opts, otlptracehttp.WithHeaders(conf.Headers))
+		}
 		if conf.Insecure {
 			opts = append(opts, otlptracehttp.WithInsecure())
+		} else if tlsCfg != nil {
+			opts = append(opts, otlptracehttp.WithTLSClientConfig(tlsCfg))
 		}
 		return otlptracehttp.New(ctx, opts...)
 	case protocolGRPC:
 		opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(conf.Endpoint)}
+		if len(conf.Headers) > 0 {
+			opts = append(opts, otlptracegrpc.WithHeaders(conf.Headers))
+		}
 		if conf.Insecure {
 			opts = append(opts, otlptracegrpc.WithInsecure())
+		} else if tlsCfg != nil {
+			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(tlsCfg)))
 		}
 		return otlptracegrpc.New(ctx, opts...)
 	default:

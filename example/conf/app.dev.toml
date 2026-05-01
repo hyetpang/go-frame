@@ -105,4 +105,14 @@ service_name = "myapp"      # 服务名称，留空时使用 zap_log.service_nam
 endpoint = "localhost:4318" # OTLP collector 接收端点
 protocol = "http"           # http 或 grpc
 sample_ratio = 1.0          # 采样率，0.0-1.0
-insecure = true             # 测试环境可设为 true，生产环境配 TLS
+# 开发环境 collector 通常不开 TLS,这里默认 insecure=true 直连本地 collector;
+# 一旦 endpoint 改成公网 / SaaS,务必把 insecure 改为 false 并启用下方 [tracing.tls]
+insecure = true
+
+# 鉴权 header 示例,留空表示不附加
+# [tracing.headers]
+# Authorization = "Bearer YOUR_TOKEN"
+
+# 开发环境默认明文,如需联调 TLS 把 enable 改 true 并提供证书路径(此时上方 insecure 必须改 false)
+[tracing.tls]
+enable = false
