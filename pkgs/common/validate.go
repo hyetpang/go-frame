@@ -1,7 +1,7 @@
 package common
 
 import (
-	"log"
+	"fmt"
 	"sync"
 
 	"github.com/go-playground/validator/v10"
@@ -12,10 +12,11 @@ var (
 	validateOnce sync.Once
 )
 
-// 数据验证，不通过直接panic
+// MustValidate 数据验证，不通过则 panic，由调用方（如 fx）决定是否致命，
+// 避免 log.Fatalf 调用 os.Exit(1) 绕过 fx Stop 导致数据库连接/Kafka producer 不正常关闭。
 func MustValidate(a any) {
 	if err := Validate(a); err != nil {
-		log.Fatalf("结构体参数验证不通过,err:%s,struct:%+v\n", err.Error(), a)
+		panic(fmt.Errorf("结构体参数验证不通过: %w, struct: %+v", err, a))
 	}
 }
 
