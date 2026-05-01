@@ -16,6 +16,11 @@ type App struct {
 
 func (app *App) run() {
 	application := fx.New(app.options...)
+	// 在启动前检查构建期错误（Provider 注入失败等），让业务侧能捕获而非静默忽略
+	if err := application.Err(); err != nil {
+		logs.Error("fx 应用构建失败", zap.Error(err))
+		return
+	}
 	if app.isStart {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 		defer cancel()
