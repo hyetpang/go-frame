@@ -37,6 +37,7 @@ type HTTP struct {
 	PprofUsername string `mapstructure:"pprof_username"`
 	PprofPassword string `mapstructure:"pprof_password"`
 	MetricsPath   string `mapstructure:"metrics_path" validate:"required_with=IsMetrics"`
+	MaxBodyBytes  int64  `mapstructure:"max_body_bytes"`
 	IsDoc         bool   `mapstructure:"is_doc"`
 	IsPprof       bool   `mapstructure:"is_pprof"`
 	IsMetrics     bool   `mapstructure:"is_metrics"`
@@ -210,6 +211,7 @@ const (
 	defaultZapStacktraceLevel          = 1
 	defaultLogNoticeLimitWindowSeconds = 60
 	defaultLogNoticeLimitMaxKeys       = 1024
+	defaultHTTPMaxBodyBytes      int64 = 10 << 20 // 10 MiB
 )
 
 func Load(configFile string) (*Config, error) {
@@ -299,8 +301,15 @@ func (conf *Config) applyDefaults() {
 	if conf.GRPC.ServicePrefix == "" {
 		conf.GRPC.ServicePrefix = defaultGRPCServicePrefix
 	}
+	conf.HTTP.applyDefaults()
 	conf.ZapLog.applyDefaults()
 	conf.LogNotice.applyDefaults()
+}
+
+func (conf *HTTP) applyDefaults() {
+	if conf.MaxBodyBytes <= 0 {
+		conf.MaxBodyBytes = defaultHTTPMaxBodyBytes
+	}
 }
 
 func (conf *ZapLog) applyDefaults() {

@@ -25,6 +25,12 @@ import (
 const (
 	// httpReadyTimeout 启动期 self-check 的总超时,避免新检查拖慢 fx 启动
 	httpReadyTimeout = 200 * time.Millisecond
+	// httpMaxHeaderBytes 限制 HTTP 请求 header 总大小,避免恶意大 header 攻击
+	httpMaxHeaderBytes = 1 << 20 // 1 MiB
+	// httpMaxMultipartMemory gin 解析 multipart 表单时驻留内存上限,超出转写临时文件
+	httpMaxMultipartMemory = 8 << 20 // 8 MiB
+	// httpDefaultMaxBodyBytes body 限流中间件默认上限,可通过配置覆盖
+	httpDefaultMaxBodyBytes int64 = 10 << 20 // 10 MiB
 )
 
 func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
@@ -43,6 +49,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error)
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    httpMaxHeaderBytes,
 	}
 
 	lc.Append(fx.Hook{
@@ -134,6 +141,12 @@ func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.New()
+	router.MaxMultipartMemory = httpMaxMultipartMemory
+	maxBodyBytes := conf.MaxBodyBytes
+	if maxBodyBytes <= 0 {
+		maxBodyBytes = httpDefaultMaxBodyBytes
+	}
+	router.Use(bodyLimitMiddleware(maxBodyBytes))
 	router.Use(ginzap.Ginzap(zapLog, time.RFC3339Nano, false))
 	router.Use(recoveryWithZap(zapLog, true))
 	if conf.IsMetrics {
@@ -212,4 +225,15 @@ func noMethodHandler(ctx *gin.Context) {
 	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
 	logs.Error("请求方法不允许", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
 	ctx.AbortWithStatus(http.StatusMethodNotAllowed)
+}
+
+// bodyLimitMiddleware 通过 http.MaxBytesReader 限制单个请求体最大字节数,
+// 防止超大 body 占用内存或写盘空间。0 或负值表示不启用限制。
+func bodyLimitMiddleware(maxBytes int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if maxBytes > 0 && c.Request != nil && c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		}
+		c.Next()
+	}
 }
