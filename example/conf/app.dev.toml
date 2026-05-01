@@ -30,6 +30,10 @@ addr = "127.0.0.1:6379"
 pwd = ""
 db = 1
 
+# 开发环境默认明文,如需联调 TLS 把 enable 改 true 并提供证书路径
+[redis.tls]
+enable = false
+
 [mail]
 user = "user@example.com"
 pass = "your_mail_password"

@@ -29,6 +29,20 @@ name = "default"
 addr = "127.0.0.1:6379"
 pwd = ""
 db = 1
+pool_size = 0
+min_idle_conns = 5
+dial_timeout = 5
+read_timeout = 5
+write_timeout = 5
+
+# 生产环境强烈建议启用 redis TLS+ACL,防止凭据/PII 流量被嗅探
+[redis.tls]
+enable = false
+ca_file = ""
+cert_file = ""
+key_file = ""
+server_name = ""
+insecure_skip_verify = false
 
 [log_notice]
 name = "myapp"
