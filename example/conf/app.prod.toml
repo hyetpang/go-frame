@@ -51,6 +51,7 @@ notice = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key"
 limit_window_seconds = 60
 limit_max_keys = 1024
 is_limit_disabled = false
+allowed_hosts = ["qyapi.weixin.qq.com", "open.feishu.cn", "api.telegram.org"] # 通知 webhook 域名白名单(后缀匹配)
 
 [zap_log]
 path = "/var/log/go-frame"
