@@ -12,12 +12,14 @@ import (
 	"github.com/gin-contrib/pprof"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	frameconfig "github.com/hyetpang/go-frame/internal/config"
 	"github.com/hyetpang/go-frame/pkgs/base"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"github.com/penglongli/gin-metrics/ginmetrics"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -33,8 +35,8 @@ const (
 	httpDefaultMaxBodyBytes int64 = 10 << 20 // 10 MiB
 )
 
-func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (gin.IRouter, error) {
-	router, conf, err := newGin(zapLog, conf)
+func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config, tracingConf *frameconfig.Tracing) (gin.IRouter, error) {
+	router, conf, err := newGin(zapLog, conf, tracingConf)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +132,7 @@ func selfCheckHTTPReady(ctx context.Context, addr string, errC <-chan error) err
 	return nil
 }
 
-func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
+func newGin(zapLog *zap.Logger, conf *config, tracingConf *frameconfig.Tracing) (*gin.Engine, *config, error) {
 	if err := common.Validate(conf); err != nil {
 		return nil, nil, fmt.Errorf("http配置验证不通过: %w", err)
 	}
@@ -149,6 +151,9 @@ func newGin(zapLog *zap.Logger, conf *config) (*gin.Engine, *config, error) {
 	router.Use(bodyLimitMiddleware(maxBodyBytes))
 	router.Use(ginzap.Ginzap(zapLog, time.RFC3339Nano, false))
 	router.Use(recoveryWithZap(zapLog, true))
+	if tracingConf != nil && tracingConf.Enable {
+		router.Use(otelgin.Middleware(tracingConf.ServiceName))
+	}
 	if conf.IsMetrics {
 		m := ginmetrics.GetMonitor()
 		m.SetMetricPath(conf.MetricsPath)

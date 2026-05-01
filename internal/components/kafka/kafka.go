@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/IBM/sarama"
+	"github.com/dnwe/otelsarama"
 	"github.com/hyetpang/go-frame/internal/adapter/log"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
@@ -37,11 +38,13 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (sarama.Client
 }
 
 // NewSyncProducer 基于共享 sarama.Client 创建同步 Producer,关闭顺序先于 Client。
+// 通过 otelsarama.WrapSyncProducer 注入 OTel tracing。
 func NewSyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.SyncProducer, error) {
-	syncProducer, err := sarama.NewSyncProducerFromClient(client)
+	rawSyncProducer, err := sarama.NewSyncProducerFromClient(client)
 	if err != nil {
 		return nil, fmt.Errorf("创建kafka sync producer出错: %w", err)
 	}
+	syncProducer := otelsarama.WrapSyncProducer(client.Config(), rawSyncProducer)
 	lc.Append(fx.StopHook(func() {
 		if e := syncProducer.Close(); e != nil {
 			logs.Error("关闭kafka同步producer出错", zap.Error(e))
@@ -51,11 +54,13 @@ func NewSyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.SyncProducer
 }
 
 // NewAsyncProducer 基于共享 sarama.Client 创建异步 Producer,关闭顺序先于 Client。
+// 通过 otelsarama.WrapAsyncProducer 注入 OTel tracing。
 func NewAsyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.AsyncProducer, error) {
-	asyncProducer, err := sarama.NewAsyncProducerFromClient(client)
+	rawAsyncProducer, err := sarama.NewAsyncProducerFromClient(client)
 	if err != nil {
 		return nil, fmt.Errorf("创建kafka async producer出错: %w", err)
 	}
+	asyncProducer := otelsarama.WrapAsyncProducer(client.Config(), rawAsyncProducer)
 	lc.Append(fx.StopHook(func() {
 		if e := asyncProducer.Close(); e != nil {
 			logs.Error("关闭kafka异步producer出错", zap.Error(e))
@@ -65,11 +70,13 @@ func NewAsyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.AsyncProduc
 }
 
 // NewConsumer 基于共享 sarama.Client 创建 Consumer,关闭顺序先于 Client。
+// 通过 otelsarama.WrapConsumer 注入 OTel tracing。
 func NewConsumer(lc fx.Lifecycle, client sarama.Client) (sarama.Consumer, error) {
-	consumer, err := sarama.NewConsumerFromClient(client)
+	rawConsumer, err := sarama.NewConsumerFromClient(client)
 	if err != nil {
 		return nil, fmt.Errorf("创建kafka consumer出错: %w", err)
 	}
+	consumer := otelsarama.WrapConsumer(rawConsumer)
 	lc.Append(fx.StopHook(func() {
 		if e := consumer.Close(); e != nil {
 			logs.Error("关闭kafka consumer出错", zap.Error(e))

@@ -8,6 +8,7 @@ import (
 	"github.com/hyetpang/go-frame/internal/constants"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -20,6 +21,10 @@ func New(lc fx.Lifecycle, conf *config) (redis.UniversalClient, error) {
 	redisClient, err := newRedis(conf)
 	if err != nil {
 		return nil, err
+	}
+	if err := redisotel.InstrumentTracing(redisClient); err != nil {
+		_ = redisClient.Close()
+		return nil, fmt.Errorf("redis 注入 OpenTelemetry tracing 出错: %w", err)
 	}
 	lc.Append(fx.StopHook(func() {
 		if e := redisClient.Close(); e != nil {

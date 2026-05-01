@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+	otelgorm "gorm.io/plugin/opentelemetry/tracing"
 	"moul.io/zapgorm2"
 )
 
@@ -112,6 +113,11 @@ func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("数据库连接出错 name=%s: %w", conf.Name, err)
+	}
+	// 注入 OpenTelemetry tracing 插件；Tracing 关闭时全局 TracerProvider 是
+	// noop，本插件成本接近零。WithoutMetrics 避免与现有 prometheus 指标重复。
+	if err := db.Use(otelgorm.NewPlugin(otelgorm.WithoutMetrics())); err != nil {
+		return nil, fmt.Errorf("注入 gorm OpenTelemetry 插件出错 name=%s: %w", conf.Name, err)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
