@@ -39,7 +39,7 @@ func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 	fileCfg := zap.NewProductionEncoderConfig()
 	consoleCfg := zap.NewProductionEncoderConfig()
 
-	if common.Dev {
+	if common.IsDev() {
 		fileCfg = zap.NewDevelopmentEncoderConfig()
 		consoleCfg = zap.NewDevelopmentEncoderConfig()
 		consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder

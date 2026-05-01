@@ -42,7 +42,7 @@ func run(opt ...options.Option) {
 	ops.FxOptions = append(ops.FxOptions, fx.Invoke(printVersion))
 	runMode := conf.Server.RunMode
 	isDev := runMode == common.DevMode
-	common.Dev = isDev
+	common.SetDev(isDev)
 	if ops.UseHttp {
 		ops.FxOptions = append(ops.FxOptions, fx.Provide(gin.New))
 	}
