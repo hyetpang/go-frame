@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redsync/redsync/v4"
@@ -13,18 +14,25 @@ const (
 	redisLockTimeout = time.Second * 5
 )
 
-var redisClient redis.UniversalClient
-var redisSync *redsync.Redsync
+// redisClientPtr/redisSyncPtr 通过 atomic.Pointer 保护:
+// InjectRedis 在启动期由 fx 写入,Lock 在请求路径并发读,
+// 用 atomic 替代裸全局变量避免 race detector 报警与可见性问题。
+var (
+	redisClientPtr atomic.Pointer[redis.UniversalClient]
+	redisSyncPtr   atomic.Pointer[redsync.Redsync]
+)
 
 func InjectRedis(redisC redis.UniversalClient) {
-	redisClient = redisC
-	pool := goredis.NewPool(redisClient)
-	redisSync = redsync.New(pool)
+	redisClientPtr.Store(&redisC)
+	pool := goredis.NewPool(redisC)
+	rs := redsync.New(pool)
+	redisSyncPtr.Store(rs)
 }
 
 func Lock(key string, options ...redsync.Option) (func() error, error) {
-	if redisSync == nil {
-		return nil, errors.New("redis lock 未初始化，请先调用 WithRedis()")
+	rs := redisSyncPtr.Load()
+	if rs == nil {
+		return nil, errors.New("redis 未初始化,请确认已注册 WithRedis()")
 	}
 	merged := make([]redsync.Option, 0, len(options)+2)
 	merged = append(merged,
@@ -32,7 +40,7 @@ func Lock(key string, options ...redsync.Option) (func() error, error) {
 		redsync.WithExpiry(redisLockTimeout),
 	)
 	merged = append(merged, options...)
-	lock := redisSync.NewMutex(key, merged...)
+	lock := rs.NewMutex(key, merged...)
 	err := lock.Lock()
 	if err != nil {
 		return nil, err
