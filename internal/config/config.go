@@ -485,7 +485,7 @@ func (conf *Config) ConfigFilePath() string {
 // 字段时,one != (MySQL{}) 会因零值差异误判,而 Name/ConnectString 都是必填的稳定锚点。
 func unmarshalMySQL(v *viper.Viper, conf *Config) error {
 	if err := v.UnmarshalKey("mysql", &conf.MySQL); err == nil && len(conf.MySQL) > 0 {
-		return nil
+		return checkMySQLDuplicateNames(conf.MySQL)
 	}
 	conf.MySQL = nil
 
@@ -495,6 +495,23 @@ func unmarshalMySQL(v *viper.Viper, conf *Config) error {
 	}
 	if one.Name != "" || one.ConnectString != "" {
 		conf.MySQL = []MySQL{one}
+	}
+	return nil
+}
+
+// checkMySQLDuplicateNames 拒绝同名 [[mysql]] 配置,避免单实例 pickOneConfig 静默
+// 命中第一条、多实例 newMysqls 才报错的不一致行为。空 Name 视作 default,与 pickOneConfig 默认选择保持一致。
+func checkMySQLDuplicateNames(configs []MySQL) error {
+	seen := make(map[string]struct{}, len(configs))
+	for _, c := range configs {
+		key := c.Name
+		if key == "" {
+			key = "default"
+		}
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("mysql 配置存在重复 name=%s", key)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }

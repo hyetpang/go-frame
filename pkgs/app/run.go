@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 
 	adapterLog "github.com/hyetpang/go-frame/internal/adapter/log"
@@ -13,6 +14,12 @@ import (
 	"github.com/hyetpang/go-frame/pkgs/options"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+)
+
+// exitFunc/fatalLog 默认指向 os.Exit/logs.Error,测试中可替换以避免真实退出。
+var (
+	exitFunc = os.Exit
+	fatalLog = func(msg string, fields ...zap.Field) { log.Error(msg, fields...) }
 )
 
 func Run(opt ...options.Option) {
@@ -30,7 +37,8 @@ func run(opt ...options.Option) {
 	}
 	conf, err := frameconfig.LoadWithEnv(ops.ConfigFile)
 	if err != nil {
-		panic(fmt.Errorf("加载配置文件失败: %w", err))
+		fatalExit(fmt.Errorf("加载配置文件失败: %w", err))
+		return
 	}
 	ops.FxOptions = append(ops.FxOptions,
 		fx.Provide(func() *frameconfig.Config { return conf }),
@@ -51,7 +59,20 @@ func run(opt ...options.Option) {
 		options: ops.FxOptions,
 		isStart: ops.IsStart,
 	}
-	app.run()
+	if err := app.run(); err != nil {
+		fatalExit(err)
+		return
+	}
+}
+
+// fatalExit 在启动/构建失败时记录日志、刷新 zap buffer,并以非 0 退出码退出,
+// 让 k8s/systemd 等编排层能感知失败重启。
+func fatalExit(err error) {
+	fatalLog("应用启动失败", zap.Error(err))
+	if l := zap.L(); l != nil {
+		_ = l.Sync()
+	}
+	exitFunc(1)
 }
 
 func printVersion(_ *zap.Logger) {

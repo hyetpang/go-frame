@@ -319,6 +319,29 @@ gorm_log_ignore_record_not_found_error = false
 	}
 }
 
+// TestUnmarshalMySQLRejectsDuplicateNames 验证 [[mysql]] 同名配置在 Load 阶段就被拦下,
+// 避免单实例 pickOneConfig 静默命中第一条、多实例 newMysqls 才报错的不一致行为。
+func TestUnmarshalMySQLRejectsDuplicateNames(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(path, []byte(`
+[[mysql]]
+name = "primary"
+connect_string = "user:pass@tcp(127.0.0.1:3306)/a"
+gorm_log_level = 4
+
+[[mysql]]
+name = "primary"
+connect_string = "user:pass@tcp(127.0.0.1:3306)/b"
+gorm_log_level = 4
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("期望同名 [[mysql]] 配置返回错误,但 Load 通过了")
+	}
+}
+
 func TestLoadExampleConfigs(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
