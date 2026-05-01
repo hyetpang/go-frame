@@ -4,3 +4,7 @@ example/logs
 api.rest
 *.log
 .omc
+.claude
+CLAUDE.md
+AGENTS.md
+docs
