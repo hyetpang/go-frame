@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -30,31 +29,28 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 					errCh <- e
 				}
 			}()
-			select {
-			case e := <-errCh:
+			if err := waitGRPCServerReady(startCtx, lis.Addr().String(), errCh); err != nil {
 				cancel()
-				return fmt.Errorf("启动grpc serve出错: %w", e)
-			case <-startCtx.Done():
-				cancel()
-				return startCtx.Err()
-			case <-time.After(time.Second):
-				serviceNames := conf.ServiceNames
-				if len(serviceNames) == 0 {
-					serviceNames = make([]string, 0, len(s.GetServiceInfo()))
-					for name := range s.GetServiceInfo() {
-						serviceNames = append(serviceNames, name)
-					}
-				}
-				for _, serviceName := range serviceNames {
-					if err := etcdRegisterService(ctx, serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
-						cancel()
-						return fmt.Errorf("注册服务出错 %s: %w", serviceName, err)
-					}
-					logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
-				}
-				logs.Debug("grpc start success", zap.String("address", conf.Address))
-				return nil
+				return err
 			}
+			// 启动成功后持续监听 Serve 异常退出,避免错误被吞没
+			go watchGRPCServeError(errCh, lis.Addr().String())
+			serviceNames := conf.ServiceNames
+			if len(serviceNames) == 0 {
+				serviceNames = make([]string, 0, len(s.GetServiceInfo()))
+				for name := range s.GetServiceInfo() {
+					serviceNames = append(serviceNames, name)
+				}
+			}
+			for _, serviceName := range serviceNames {
+				if err := etcdRegisterService(ctx, serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
+					cancel()
+					return fmt.Errorf("注册服务出错 %s: %w", serviceName, err)
+				}
+				logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
+			}
+			logs.Debug("grpc start success", zap.String("address", conf.Address))
+			return nil
 		},
 		OnStop: func(stopCtx context.Context) error {
 			cancel()

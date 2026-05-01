@@ -24,7 +24,11 @@ import (
 	gresolver "google.golang.org/grpc/resolver"
 )
 
-const grpcGracefulStopTimeout = 5 * time.Second
+const (
+	grpcGracefulStopTimeout = 5 * time.Second
+	// grpcReadyTimeout 为启动期 self-dial 健康检查总超时,避免长时间阻塞 fx 启动
+	grpcReadyTimeout = 200 * time.Millisecond
+)
 
 var (
 	serverMetrics       = grpc_prometheus.NewServerMetrics()
@@ -40,24 +44,23 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.Server,
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			// errCh 长期保留,启动期由 OnStart 监听,启动成功后由后台 goroutine 继续监听 Serve 异常退出
 			errCh := make(chan error, 1)
 			go func() {
 				if e := s.Serve(lis); e != nil {
 					errCh <- e
 				}
 			}()
-			select {
-			case e := <-errCh:
-				return fmt.Errorf("启动grpc serve出错: %w", e)
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Second):
-				for serviceName, serviceInfo := range s.GetServiceInfo() {
-					zap.L().Info("注册GRPC服务", zap.String("服务名", serviceName), zap.Any("Metadata", serviceInfo.Metadata))
-				}
-				logs.Debug("grpc start success", zap.String("address", conf.Address))
-				return nil
+			if err := waitGRPCServerReady(ctx, lis.Addr().String(), errCh); err != nil {
+				return err
 			}
+			// 启动成功后将 errCh 的监听权转交给后台 goroutine,避免 Serve 长时间运行后失败的错误被吞没
+			go watchGRPCServeError(errCh, lis.Addr().String())
+			for serviceName, serviceInfo := range s.GetServiceInfo() {
+				zap.L().Info("注册GRPC服务", zap.String("服务名", serviceName), zap.Any("Metadata", serviceInfo.Metadata))
+			}
+			logs.Debug("grpc start success", zap.String("address", conf.Address))
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			gracefulStopServer(ctx, s)
@@ -179,6 +182,59 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 		return conn.Close()
 	}))
 	return conn, nil
+}
+
+// waitGRPCServerReady 通过本地 self-dial Health 服务来确认 grpc server 已经能接受请求,
+// 替代旧版"睡 1 秒就算成功"的伪健康检查。errCh 中的错误优先返回。
+func waitGRPCServerReady(ctx context.Context, addr string, errCh <-chan error) error {
+	// 先快速检查 Serve 是否已经直接报错(端口被抢占等)
+	select {
+	case e, ok := <-errCh:
+		if ok && e != nil {
+			return fmt.Errorf("启动grpc serve出错: %w", e)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	dialCtx, cancel := context.WithTimeout(ctx, grpcReadyTimeout)
+	defer cancel()
+	// 直连本地监听地址,绕过 dns 解析
+	conn, err := grpc.NewClient("passthrough:///"+addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("self-dial grpc server %s 失败: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	conn.Connect()
+
+	healthClient := grpc_health_v1.NewHealthClient(conn)
+	resp, err := healthClient.Check(dialCtx, &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		// health 检查失败时再确认是否是 Serve 直接挂掉
+		select {
+		case e, ok := <-errCh:
+			if ok && e != nil {
+				return fmt.Errorf("启动grpc serve出错: %w", e)
+			}
+		default:
+		}
+		return fmt.Errorf("grpc health 检查失败: %w", err)
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		return fmt.Errorf("grpc health 状态异常: %s", resp.GetStatus())
+	}
+	return nil
+}
+
+// watchGRPCServeError 在启动成功后持续监听 Serve goroutine 的错误,
+// 避免 Serve 长时间运行后异常退出导致错误被吞没。
+func watchGRPCServeError(errCh <-chan error, addr string) {
+	if e, ok := <-errCh; ok && e != nil {
+		logs.Error("grpc Serve 异常退出", zap.String("address", addr), zap.Error(e))
+	}
 }
 
 func gracefulStopServer(ctx context.Context, server *grpc.Server) {
