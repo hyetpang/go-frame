@@ -17,7 +17,7 @@ func TestNewGinReturnsErrorWhenPprofHasNoAuth(t *testing.T) {
 		IsPprof: true,
 	}
 
-	_, _, err := newGin(zap.NewNop(), conf)
+	_, _, err := newGin(zap.NewNop(), conf, nil)
 	if err == nil {
 		t.Fatal("expected pprof without auth to return error")
 	}
@@ -35,7 +35,7 @@ func TestNewGinProtectsPprofWithBasicAuth(t *testing.T) {
 		PprofPassword: pprofPass,
 	}
 
-	router, _, err := newGin(zap.NewNop(), conf)
+	router, _, err := newGin(zap.NewNop(), conf, nil)
 	if err != nil {
 		t.Fatalf("newGin returned error: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestNewGinRejectsWeakPprofPassword(t *testing.T) {
 				PprofUsername: tc.username,
 				PprofPassword: tc.password,
 			}
-			if _, _, err := newGin(zap.NewNop(), conf); err == nil {
+			if _, _, err := newGin(zap.NewNop(), conf, nil); err == nil {
 				t.Fatalf("expected weak pprof credentials to be rejected")
 			}
 		})
@@ -93,7 +93,7 @@ func TestNewStartsWithoutFixedOneSecondDelay(t *testing.T) {
 	}
 	lc := fxtest.NewLifecycle(t)
 
-	_, err := New(zap.NewNop(), lc, conf)
+	_, err := New(zap.NewNop(), lc, conf, nil)
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}

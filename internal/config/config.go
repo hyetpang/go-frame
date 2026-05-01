@@ -24,6 +24,7 @@ type Config struct {
 	Etcd           Etcd
 	Kafka          Kafka
 	Gout           Gout
+	Tracing        Tracing
 	configFilePath string
 }
 
@@ -216,6 +217,22 @@ type Gout struct {
 	Timeout int  `mapstructure:"timeout"`
 }
 
+// Tracing 用于配置 OpenTelemetry 分布式追踪。
+type Tracing struct {
+	// ServiceName 上报到 collector 的服务名，留空时回落到 ZapLog.ServiceName。
+	ServiceName string `mapstructure:"service_name"`
+	// Endpoint OTLP collector 接收端点，例如 "localhost:4318"（HTTP）或 "localhost:4317"（gRPC）。
+	Endpoint string `mapstructure:"endpoint"`
+	// Protocol 传输协议，可选 "http" 或 "grpc"，留空时默认 "http"。
+	Protocol string `mapstructure:"protocol" validate:"omitempty,oneof=http grpc"`
+	// SampleRatio 采样率，取值范围 [0.0, 1.0]，留空或 0 时默认 1.0（全采样）。
+	SampleRatio float64 `mapstructure:"sample_ratio" validate:"gte=0,lte=1"`
+	// Enable 是否启用分布式追踪，关闭时使用 noop TracerProvider 保持向后兼容。
+	Enable bool `mapstructure:"enable"`
+	// Insecure OTLP exporter 是否走明文链路，仅在测试环境置 true。
+	Insecure bool `mapstructure:"insecure"`
+}
+
 const (
 	defaultGRPCServicePrefix           = "grpc_services"
 	defaultZapLogMaxSize               = 128
@@ -231,6 +248,8 @@ const (
 	defaultRedisWriteTimeoutSec        = 5
 	// defaultRedisPoolSizeMultiplier 用于按 GOMAXPROCS 推导 PoolSize:与 go-redis 默认一致 (10*GOMAXPROCS)。
 	defaultRedisPoolSizeMultiplier = 10
+	defaultTracingProtocol         = "http"
+	defaultTracingSampleRatio      = 1.0
 )
 
 func Load(configFile string) (*Config, error) {
@@ -278,6 +297,9 @@ func Load(configFile string) (*Config, error) {
 	if err := v.UnmarshalKey("gout", &conf.Gout); err != nil {
 		return nil, fmt.Errorf("gout配置Unmarshal到对象出错: %w", err)
 	}
+	if err := v.UnmarshalKey("tracing", &conf.Tracing); err != nil {
+		return nil, fmt.Errorf("tracing配置Unmarshal到对象出错: %w", err)
+	}
 	conf.applyDefaults()
 	return conf, nil
 }
@@ -313,6 +335,7 @@ func SectionProviders() []any {
 		provideEtcd,
 		provideKafka,
 		provideGout,
+		provideTracing,
 	}
 }
 
@@ -324,6 +347,7 @@ func (conf *Config) applyDefaults() {
 	conf.ZapLog.applyDefaults()
 	conf.LogNotice.applyDefaults()
 	conf.Redis.applyDefaults()
+	conf.Tracing.applyDefaults(&conf.ZapLog)
 }
 
 // applyDefaults 给 Redis 连接池/超时未显式配置时填默认值,
@@ -376,6 +400,18 @@ func (conf *LogNotice) applyDefaults() {
 	}
 }
 
+func (conf *Tracing) applyDefaults(zapLog *ZapLog) {
+	if conf.Protocol == "" {
+		conf.Protocol = defaultTracingProtocol
+	}
+	if conf.SampleRatio <= 0 {
+		conf.SampleRatio = defaultTracingSampleRatio
+	}
+	if conf.ServiceName == "" && zapLog != nil {
+		conf.ServiceName = zapLog.ServiceName
+	}
+}
+
 func provideServer(conf *Config) *Server       { return &conf.Server }
 func provideHTTP(conf *Config) *HTTP           { return &conf.HTTP }
 func provideMySQL(conf *Config) []MySQL        { return conf.MySQL }
@@ -386,3 +422,4 @@ func provideGRPC(conf *Config) *GRPC           { return &conf.GRPC }
 func provideEtcd(conf *Config) *Etcd           { return &conf.Etcd }
 func provideKafka(conf *Config) *Kafka         { return &conf.Kafka }
 func provideGout(conf *Config) *Gout           { return &conf.Gout }
+func provideTracing(conf *Config) *Tracing     { return &conf.Tracing }

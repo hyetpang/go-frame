@@ -13,6 +13,7 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	prometheus_client "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -97,6 +98,7 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 	registerGRPCMetrics()
 	logger := grpcLogger(zapLog)
 	serverOpts := []grpc.ServerOption{
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			serverMetrics.UnaryServerInterceptor(),
 			grpc_logging.UnaryServerInterceptor(logger, grpc_logging.WithLevels(grpc_logging.DefaultServerCodeToLevel)),
@@ -153,6 +155,7 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 	logger := grpcLogger(zapLog)
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                time.Second * 60,

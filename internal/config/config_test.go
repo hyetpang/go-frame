@@ -122,7 +122,7 @@ func TestSectionProvidersExposeConfiguredSections(t *testing.T) {
 }
 
 func TestSectionProvidersDoNotExposeGraceRestart(t *testing.T) {
-	if got, want := len(SectionProviders()), 10; got != want {
+	if got, want := len(SectionProviders()), 11; got != want {
 		t.Fatalf("section provider count = %d, want %d without graceful restart provider", got, want)
 	}
 }
@@ -140,6 +140,35 @@ func TestConfigDefaultsAreApplied(t *testing.T) {
 	}
 	if conf.LogNotice.LimitWindowSeconds == 0 || conf.LogNotice.LimitMaxKeys == 0 {
 		t.Fatalf("log notice defaults not applied: %+v", conf.LogNotice)
+	}
+	if conf.Tracing.Protocol != "http" {
+		t.Fatalf("tracing protocol = %q, want http", conf.Tracing.Protocol)
+	}
+	if conf.Tracing.SampleRatio != 1.0 {
+		t.Fatalf("tracing sample ratio = %v, want 1.0", conf.Tracing.SampleRatio)
+	}
+}
+
+func TestTracingDefaultsFallbackToZapLogServiceName(t *testing.T) {
+	conf := &Config{ZapLog: ZapLog{ServiceName: "myapp"}}
+
+	conf.applyDefaults()
+
+	if conf.Tracing.ServiceName != "myapp" {
+		t.Fatalf("tracing service name = %q, want myapp", conf.Tracing.ServiceName)
+	}
+}
+
+func TestTracingDefaultsRespectExplicitServiceName(t *testing.T) {
+	conf := &Config{
+		ZapLog:  ZapLog{ServiceName: "myapp"},
+		Tracing: Tracing{ServiceName: "explicit"},
+	}
+
+	conf.applyDefaults()
+
+	if conf.Tracing.ServiceName != "explicit" {
+		t.Fatalf("tracing service name = %q, want explicit", conf.Tracing.ServiceName)
 	}
 }
 
