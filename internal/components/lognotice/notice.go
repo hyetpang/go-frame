@@ -32,14 +32,17 @@ func newNotice(conf *config, lc fx.Lifecycle) (lognoticepkg.Notifier, error) {
 	if err := validateWebhookURL(conf.Notice, conf.AllowedHosts); err != nil {
 		return nil, fmt.Errorf("log_notice webhook 校验失败: %w", err)
 	}
+	// senderBase 复用同一个 http.Client 与 safeDialer:
+	// 取代旧 gout.SetTimeout 全局副作用,并在拨号期复检 IP 防 DNS rebinding。
+	base := newSenderBase(conf.AllowedHosts)
 	var sender sender
 	switch conf.NoticeType {
 	case noticeTypeWecom:
-		sender = newWecomNotice()
+		sender = newWecomNotice(base)
 	case noticeTypeFeiShu:
-		sender = newFeiShuNotice()
+		sender = newFeiShuNotice(base)
 	case noticeTypeTelegram:
-		sender = newTelegramSender(conf.ChatID)
+		sender = newTelegramSender(base, conf.ChatID)
 	case noticeTypeEmail:
 		return nil, errors.New("日志错误通知尚未支持邮件")
 	default:

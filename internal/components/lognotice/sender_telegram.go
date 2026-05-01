@@ -1,24 +1,24 @@
 package lognotice
 
 import (
+	"context"
 	"errors"
 	"strconv"
-	"time"
 
-	"github.com/guonaihong/gout"
 	"github.com/hyetpang/go-frame/pkgs/logs"
-
 	"go.uber.org/zap"
 )
 
 // telegram
 type telegramSender struct {
+	*senderBase
 	chatID string
 }
 
-func newTelegramSender(chatID string) sender {
+func newTelegramSender(base *senderBase, chatID string) sender {
 	return &telegramSender{
-		chatID: chatID,
+		senderBase: base,
+		chatID:     chatID,
 	}
 }
 
@@ -28,21 +28,20 @@ type telegramSenderMsgRsp struct {
 	OK          bool   `json:"ok"`
 }
 
-// 通知
-func (telegram *telegramSender) Send(name, url string, msg noticeContent) error {
+func (s *telegramSender) Send(name, url string, msg noticeContent) error {
 	// telegram 使用 parse_mode=HTML,任何用户输入都需要 HTML 转义,
 	// 否则会被解析为 <a>/<b> 等标签,可能伪造钓鱼链接或破坏消息结构
 	safeName := escapeHTML(name)
 	safeMsg := escapeHTML(msg.msg)
 	safeFilename := escapeHTML(msg.filename)
-	params := make(map[string]interface{}, 3)
-	params["chat_id"] = telegram.chatID
-	params["text"] = "服务[<u>" + safeName + "</u>]出错啦,请排查问题,出错概览如下:\n描述:" + safeMsg + "\n代码行数:" + safeFilename + ":" + strconv.Itoa(msg.line) + "\n详情请查看具体日志文件"
-	params["disable_notification"] = true
-	params["parse_mode"] = "HTML"
+	params := map[string]any{
+		"chat_id":              s.chatID,
+		"text":                 "服务[<u>" + safeName + "</u>]出错啦,请排查问题,出错概览如下:\n描述:" + safeMsg + "\n代码行数:" + safeFilename + ":" + strconv.Itoa(msg.line) + "\n详情请查看具体日志文件",
+		"disable_notification": true,
+		"parse_mode":           "HTML",
+	}
 	response := new(telegramSenderMsgRsp)
-	err := gout.POST(url).SetTimeout(time.Second * 5).SetJSON(params).BindJSON(response).Do()
-	if err != nil {
+	if err := s.postJSON(context.Background(), url, params, response); err != nil {
 		logs.ErrorWithoutNotice("telegram发送消息出错", zap.Error(err), zap.Any("params", params))
 		return err
 	}
