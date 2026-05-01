@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"runtime/debug"
 
 	adapterLog "github.com/hyetpang/go-frame/internal/adapter/log"
@@ -28,7 +29,9 @@ func run(opt ...options.Option) {
 		op(ops)
 	}
 	conf, err := frameconfig.Load(ops.ConfigFile)
-	common.Panic(err)
+	if err != nil {
+		panic(fmt.Errorf("加载配置文件失败: %w", err))
+	}
 	ops.FxOptions = append(ops.FxOptions,
 		fx.Provide(func() *frameconfig.Config { return conf }),
 		fx.Provide(frameconfig.SectionProviders()...),
