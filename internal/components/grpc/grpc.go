@@ -261,9 +261,13 @@ func gracefulStopWithTimeout(gracefulStop func(), forceStop func(), timeout time
 	defer timer.Stop()
 	select {
 	case <-done:
+		return
 	case <-timer.C:
-		forceStop()
 	}
+	// 超时后强制关闭。grpc.Server.Stop 会唤醒 GracefulStop,
+	// 必须等 graceful goroutine 真正退出再返回,避免悬挂 goroutine。
+	forceStop()
+	<-done
 }
 
 func grpcLogger(logger *zap.Logger) grpc_logging.Logger {

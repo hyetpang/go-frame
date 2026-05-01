@@ -28,7 +28,7 @@ func run(opt ...options.Option) {
 	for _, op := range opt {
 		op(ops)
 	}
-	conf, err := frameconfig.Load(ops.ConfigFile)
+	conf, err := frameconfig.LoadWithEnv(ops.ConfigFile)
 	if err != nil {
 		panic(fmt.Errorf("加载配置文件失败: %w", err))
 	}

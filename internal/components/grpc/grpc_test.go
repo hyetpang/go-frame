@@ -13,10 +13,13 @@ func TestGracefulStopWithTimeoutFallsBackToStop(t *testing.T) {
 	stopped := make(chan struct{})
 	forced := make(chan struct{}, 1)
 
+	// forceStop 模拟 grpc.Server.Stop 的真实语义:
+	// 强制关闭后会唤醒被 GracefulStop 阻塞的 goroutine。
 	gracefulStopWithTimeout(func() {
 		<-stopped
 	}, func() {
 		forced <- struct{}{}
+		close(stopped)
 	}, time.Millisecond)
 
 	select {
@@ -24,7 +27,28 @@ func TestGracefulStopWithTimeoutFallsBackToStop(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("expected force stop after timeout")
 	}
-	close(stopped)
+}
+
+// TestGracefulStopWithTimeoutWaitsForGoroutineExit 验证超时分支会等待 graceful goroutine
+// 真正退出后再返回,避免悬挂 goroutine。
+func TestGracefulStopWithTimeoutWaitsForGoroutineExit(t *testing.T) {
+	stopped := make(chan struct{})
+	gracefulReturned := make(chan struct{})
+
+	go func() {
+		gracefulStopWithTimeout(func() {
+			<-stopped
+			close(gracefulReturned)
+		}, func() {
+			close(stopped)
+		}, time.Millisecond)
+	}()
+
+	select {
+	case <-gracefulReturned:
+	case <-time.After(time.Second):
+		t.Fatal("graceful goroutine 未在合理时间内退出")
+	}
 }
 
 // TestNewServerStartsWithoutFixedOneSecondDelay 验证 grpc server 启动不再有固定 1s 等待
