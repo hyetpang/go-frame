@@ -24,6 +24,9 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle) *cron.Cron {
 			cronCtx := cron.Stop()
 			select {
 			case <-ctx.Done():
+				// fx 关闭超时，定时任务仍在运行，强制触发 cron 停止信号
+				cron.Stop()
+				logs.Warn("定时任务超时强制结束", zap.Error(ctx.Err()))
 				return ctx.Err()
 			case <-cronCtx.Done():
 				err := cronCtx.Err()
