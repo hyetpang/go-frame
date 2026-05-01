@@ -117,3 +117,21 @@ cert_file = ""            # 可选: 启用 mTLS 时使用的客户端证书
 key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
 server_name = ""
 insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启
+
+
+[kafka]
+addr = "127.0.0.1:9092"   # kafka 地址,多个 broker 使用逗号分隔
+client_id = "myapp"       # sarama ClientID,留空使用 sarama 默认
+username = ""             # SASL 用户名,留空表示明文连接(无 SASL)
+password = ""             # SASL 密码
+mechanism = "PLAIN"       # SASL 机制,允许值: PLAIN / SCRAM-SHA-256 / SCRAM-SHA-512
+
+# Kafka 客户端 TLS,enable=false 时走明文 (向后兼容)
+# 启用 SASL 但 TLS=false 时为 SASL_PLAINTEXT;两者同时开启为 SASL_SSL
+[kafka.tls]
+enable = false
+ca_file = ""              # 校验 kafka 服务端证书的 CA
+cert_file = ""            # 可选: 启用 mTLS 时使用的客户端证书
+key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
+server_name = ""          # SNI / 证书 CommonName 校验
+insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启

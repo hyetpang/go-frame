@@ -86,6 +86,13 @@ enable = false
 [kafka]
 addr = ""
 client_id = "myapp-dev"
+username = ""
+password = ""
+mechanism = "PLAIN"
+
+# 开发环境默认明文,如需联调 SASL_SSL 把 enable 改 true 并提供证书路径
+[kafka.tls]
+enable = false
 
 [gout]
 debug = true

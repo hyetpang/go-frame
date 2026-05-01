@@ -78,8 +78,10 @@ func NewConsumer(lc fx.Lifecycle, client sarama.Client) (sarama.Consumer, error)
 	return consumer, nil
 }
 
-// buildSaramaConfig 构造 sarama.Config,保留默认 Producer 行为。
-// SASL/TLS 在后续提交中按需叠加,避免一次性引入过多变更。
+// buildSaramaConfig 在默认 Producer 配置之上叠加 SASL 与 TLS。
+// SASL: Username 非空时启用,根据 Mechanism 选择 PLAIN/SCRAM-SHA-256/SCRAM-SHA-512。
+// TLS:  TLS.Enable 时复用通用 BuildClientTLS 构造 *tls.Config。
+// 两项均可独立开启,例如 SASL_PLAINTEXT 仅开 SASL,SASL_SSL 同时启用。
 func buildSaramaConfig(conf *config) (*sarama.Config, error) {
 	saramaCfg := sarama.NewConfig()
 	saramaCfg.Producer.RequiredAcks = sarama.WaitForAll          // 发送完数据需要leader和follow都确认
@@ -88,5 +90,39 @@ func buildSaramaConfig(conf *config) (*sarama.Config, error) {
 	if len(conf.ClientID) > 0 {
 		saramaCfg.ClientID = conf.ClientID
 	}
+	if conf.Username != "" {
+		mechanism, err := resolveSASLMechanism(conf.Mechanism)
+		if err != nil {
+			return nil, err
+		}
+		saramaCfg.Net.SASL.Enable = true
+		saramaCfg.Net.SASL.Handshake = true
+		saramaCfg.Net.SASL.User = conf.Username
+		saramaCfg.Net.SASL.Password = conf.Password
+		saramaCfg.Net.SASL.Mechanism = mechanism
+	}
+	if conf.TLS.IsEnabled() {
+		tlsCfg, err := conf.TLS.BuildClientTLS()
+		if err != nil {
+			return nil, fmt.Errorf("构建 kafka TLS 配置出错: %w", err)
+		}
+		saramaCfg.Net.TLS.Enable = true
+		saramaCfg.Net.TLS.Config = tlsCfg
+	}
 	return saramaCfg, nil
+}
+
+// resolveSASLMechanism 将 toml 中的字符串映射为 sarama.SASLMechanism。
+// 空字符串视为 PLAIN,与历史"明文连接"语义保持兼容。
+func resolveSASLMechanism(name string) (sarama.SASLMechanism, error) {
+	switch strings.ToUpper(strings.TrimSpace(name)) {
+	case "", "PLAIN":
+		return sarama.SASLTypePlaintext, nil
+	case "SCRAM-SHA-256":
+		return sarama.SASLTypeSCRAMSHA256, nil
+	case "SCRAM-SHA-512":
+		return sarama.SASLTypeSCRAMSHA512, nil
+	default:
+		return "", fmt.Errorf("不支持的 kafka SASL mechanism=%q,允许值: PLAIN/SCRAM-SHA-256/SCRAM-SHA-512", name)
+	}
 }

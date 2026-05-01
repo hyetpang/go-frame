@@ -202,8 +202,12 @@ func (c *TLSConfig) BuildServerTLS() (*tls.Config, error) {
 }
 
 type Kafka struct {
-	Addr     string `mapstructure:"addr" validate:"required"`
-	ClientID string `mapstructure:"client_id"`
+	Addr      string    `mapstructure:"addr" validate:"required"`
+	ClientID  string    `mapstructure:"client_id"`
+	Username  string    `mapstructure:"username"`  // SASL 用户名,留空表示明文连接
+	Password  string    `mapstructure:"password"`  // SASL 密码
+	Mechanism string    `mapstructure:"mechanism"` // PLAIN(默认) / SCRAM-SHA-256 / SCRAM-SHA-512
+	TLS       TLSConfig `mapstructure:"tls"`
 }
 
 type Gout struct {
