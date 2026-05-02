@@ -51,7 +51,10 @@ type HTTP struct {
 	PprofPassword string `mapstructure:"pprof_password"`
 	MetricsPath   string `mapstructure:"metrics_path" validate:"required_with=IsMetrics"`
 	MaxBodyBytes  int64  `mapstructure:"max_body_bytes"`
-	IsDoc         bool   `mapstructure:"is_doc"`
+	// ReadyTimeoutMs HTTP server 启动 self-check 的总超时(毫秒),
+	// 0 视为未配置走默认 1000ms。CI 容器、慢启动镜像可适当调高。
+	ReadyTimeoutMs int  `mapstructure:"ready_timeout_ms"`
+	IsDoc          bool `mapstructure:"is_doc"`
 	IsPprof       bool   `mapstructure:"is_pprof"`
 	IsMetrics     bool   `mapstructure:"is_metrics"`
 	IsProd        bool   `mapstructure:"is_prod"`
@@ -110,7 +113,9 @@ type ZapLog struct {
 	Path            string `mapstructure:"path"`
 	ServiceName     string `mapstructure:"service_name"`
 	Level           int    `mapstructure:"level" validate:"oneof=-1 0 1 2"`
-	StacktraceLevel int    `mapstructure:"stacktrace_level" validate:"oneof=-1 0 1 2"`
+	// StacktraceLevel 为 0 视为未设置(走默认 WarnLevel)。允许值为 -1/1/2,
+	// 不再接受 0 — 旧版 0 会被静默改成 1,容易让用户误以为"显式配 InfoLevel"生效。
+	StacktraceLevel int `mapstructure:"stacktrace_level" validate:"omitempty,oneof=-1 1 2"`
 	LogMaxSize      int    `mapstructure:"log_max_size"`
 	LogMaxBackups   int    `mapstructure:"log_max_backups"`
 	LogMaxAge       int    `mapstructure:"log_max_age"`
@@ -123,6 +128,17 @@ type GRPC struct {
 	ServiceNames  []string  `mapstructure:"service_names"`
 	ServerTLS     TLSConfig `mapstructure:"server_tls"`
 	ClientTLS     TLSConfig `mapstructure:"client_tls"`
+	// MaxRecvMsgMB / MaxSendMsgMB 应用于 server 与 client 两侧。0 视为未设置走 grpc-go 默认 4MB。
+	// 业务发大 protobuf(批量响应/导出/上传)时按需调高。
+	MaxRecvMsgMB int `mapstructure:"max_recv_msg_mb"`
+	MaxSendMsgMB int `mapstructure:"max_send_msg_mb"`
+	// KeepaliveTimeSec / KeepaliveTimeoutSec server/client 共用,0 走默认 60/20s。
+	// 移动端/外网客户端易掉连时可调小 Time 缩短探测周期。
+	KeepaliveTimeSec    int `mapstructure:"keepalive_time_sec"`
+	KeepaliveTimeoutSec int `mapstructure:"keepalive_timeout_sec"`
+	// MaxConnectionIdleSec / MaxConnectionAgeSec 仅 server 使用,0 走默认 180s/2h。
+	MaxConnectionIdleSec int `mapstructure:"max_connection_idle_sec"`
+	MaxConnectionAgeSec  int `mapstructure:"max_connection_age_sec"`
 }
 
 type Etcd struct {
@@ -359,9 +375,11 @@ var globalReloadCallbacks reloadCallbacks
 
 // reloadMetrics 持有热加载相关 prometheus 指标,用 sync.Once 保证只注册一次。
 var (
-	reloadMetricsOnce    sync.Once
-	reloadSuccessCounter prometheus.Counter
-	reloadFailedCounter  prometheus.Counter
+	reloadMetricsOnce      sync.Once
+	reloadSuccessCounter   prometheus.Counter
+	reloadFailedCounter    prometheus.Counter
+	reloadCallbackPanic    prometheus.Counter
+	reloadCallbackDuration prometheus.Histogram
 )
 
 func initReloadMetrics() {
@@ -374,7 +392,37 @@ func initReloadMetrics() {
 			Name: "config_reload_failed_total",
 			Help: "配置文件热加载失败次数",
 		})
+		reloadCallbackPanic = promauto.NewCounter(prometheus.CounterOpts{
+			Name: "config_reload_callback_panic_total",
+			Help: "配置热加载 callback 触发 panic 次数(已被 recover,不会杀掉 watch goroutine)",
+		})
+		reloadCallbackDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+			Name:    "config_reload_callback_duration_seconds",
+			Help:    "配置热加载 callback 单次执行耗时分布",
+			Buckets: prometheus.ExponentialBuckets(0.001, 4, 7), // 1ms ~ 4s
+		})
 	})
+}
+
+// safeInvokeReloadCallback 为单个 callback 提供 panic recover 与耗时记录。
+//
+// 旧实现 for ... fn(newConf) 中任意 callback panic 会沿调用栈杀掉 fsnotify
+// debounce goroutine,后续配置变更不再触发 — 是隐蔽的"热加载永久失效"故障。
+// recover 把单个 callback 故障收敛在它自身,不影响其他 callback 与未来 reload。
+func safeInvokeReloadCallback(fn func(*Config), newConf *Config) {
+	defer func() {
+		if r := recover(); r != nil {
+			if reloadCallbackPanic != nil {
+				reloadCallbackPanic.Inc()
+			}
+			logs.Error("配置热加载 callback panic,已 recover", zap.Any("recover", r))
+		}
+	}()
+	start := time.Now()
+	fn(newConf)
+	if reloadCallbackDuration != nil {
+		reloadCallbackDuration.Observe(time.Since(start).Seconds())
+	}
 }
 
 // WatchAndReload 监听 configFilePath 的变更,文件变化时重新调用 Load 解析新配置,
@@ -443,7 +491,7 @@ func watchPath(path string, callbacks *reloadCallbacks) {
 			}
 			reloadSuccessCounter.Inc()
 			for _, fn := range callbacks.snapshot() {
-				fn(newConf)
+				safeInvokeReloadCallback(fn, newConf)
 			}
 		})
 	})

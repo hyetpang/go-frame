@@ -1,10 +1,12 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hyetpang/go-frame/internal/lifecycle"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -38,10 +40,14 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config) (*clientv3.Client, e
 	if err != nil {
 		return nil, fmt.Errorf("创建etcd客户端出错 addresses=%s: %w", conf.Addresses, err)
 	}
-	lc.Append(fx.StopHook(func() {
-		if e := cli.Close(); e != nil {
-			logs.Error("关闭etcd客户端出错", zap.Error(e))
-		}
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			if e := lifecycle.CloseWithContext(ctx, "etcd", cli.Close); e != nil {
+				logs.Error("关闭etcd客户端出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return cli, nil
 }

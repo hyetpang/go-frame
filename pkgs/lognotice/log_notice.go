@@ -2,6 +2,8 @@
 package lognotice
 
 import (
+	"sync/atomic"
+
 	"go.uber.org/zap"
 )
 
@@ -11,8 +13,14 @@ type Notifier interface {
 	Notice(msg string, filename string, line int, fields ...zap.Field)
 }
 
-// 默认的一个实现,避免未注入实现时 panic。
-var logNotice Notifier = defaultLogNotice{}
+// logNotice 用 atomic.Pointer 保护:Inject 在启动期写入,Notice 在请求路径并发读,
+// 与 pkgs/logs.noticeHook 保持一致的并发安全契约。默认指向 noop 实现避免未注入时 panic。
+var logNotice atomic.Pointer[Notifier]
+
+func init() {
+	var n Notifier = defaultLogNotice{}
+	logNotice.Store(&n)
+}
 
 type defaultLogNotice struct{}
 
@@ -21,5 +29,7 @@ func (defaultLogNotice) Notice(msg string, filename string, line int, fields ...
 
 // Notice 触发一次错误日志通知,会转发到当前注入的 Notifier。
 func Notice(msg string, filename string, line int, fields ...zap.Field) {
-	logNotice.Notice(msg, filename, line, fields...)
+	if p := logNotice.Load(); p != nil {
+		(*p).Notice(msg, filename, line, fields...)
+	}
 }

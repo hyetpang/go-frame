@@ -35,6 +35,27 @@ var (
 	serverMetrics       = grpc_prometheus.NewServerMetrics()
 	clientMetrics       = grpc_prometheus.NewClientMetrics()
 	registerMetricsOnce sync.Once
+	// clientTargetReady 暴露每个 grpc client target 启动期健康检查结果,
+	// 标签 status=success 表示可达、status=fail 表示启动期不可达(不阻断启动,
+	// 仅用作可观测,便于发现"目标服务一个都没注册"等环境问题)。
+	clientTargetReady = prometheus_client.NewCounterVec(
+		prometheus_client.CounterOpts{
+			Name: "grpc_client_target_ready_total",
+			Help: "grpc client startup-time health check result per target",
+		},
+		[]string{"target", "status"},
+	)
+)
+
+const (
+	// grpcClientReadyCheckTimeout 启动期对每个 client target 做一次最大等待时间。
+	// 失败不阻塞启动,只记录指标 + warn 日志。
+	grpcClientReadyCheckTimeout = 500 * time.Millisecond
+	// 默认 keepalive / 消息体上限,与 grpc-go 默认对齐。
+	defaultKeepaliveTimeSec    = 60
+	defaultKeepaliveTimeoutSec = 20
+	defaultMaxConnIdleSec      = 180
+	defaultMaxConnAgeSec       = 7200 // 2h
 )
 
 // 不使用服务发现
@@ -84,7 +105,7 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.ClientC
 	if err != nil {
 		return nil, err
 	}
-	return newClient(conf.Address, lc, zapLog, nil, creds)
+	return newClient(conf.Address, conf.Address, conf, lc, zapLog, nil, creds)
 }
 
 func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *config, error) {
@@ -110,12 +131,18 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 			grpc_recovery.StreamServerInterceptor(),
 		),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionIdle:     time.Second * 180,
-			MaxConnectionAge:      time.Hour * 2,
+			MaxConnectionIdle:     secondsOrDefault(conf.MaxConnectionIdleSec, defaultMaxConnIdleSec),
+			MaxConnectionAge:      secondsOrDefault(conf.MaxConnectionAgeSec, defaultMaxConnAgeSec),
 			MaxConnectionAgeGrace: time.Second * 20,
-			Time:                  time.Second * 60,
-			Timeout:               time.Second * 20,
+			Time:                  secondsOrDefault(conf.KeepaliveTimeSec, defaultKeepaliveTimeSec),
+			Timeout:               secondsOrDefault(conf.KeepaliveTimeoutSec, defaultKeepaliveTimeoutSec),
 		}),
+	}
+	if conf.MaxRecvMsgMB > 0 {
+		serverOpts = append(serverOpts, grpc.MaxRecvMsgSize(conf.MaxRecvMsgMB*1024*1024))
+	}
+	if conf.MaxSendMsgMB > 0 {
+		serverOpts = append(serverOpts, grpc.MaxSendMsgSize(conf.MaxSendMsgMB*1024*1024))
 	}
 	if conf.ServerTLS.IsEnabled() {
 		tlsCfg, terr := conf.ServerTLS.BuildServerTLS()
@@ -147,19 +174,36 @@ func buildClientCreds(tlsConf *frameTLSConfig) (credentials.TransportCredentials
 	return credentials.NewTLS(cfg), nil
 }
 
-func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder, creds credentials.TransportCredentials) (*grpc.ClientConn, error) {
+func newClient(addr, target string, conf *config, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gresolver.Builder, creds credentials.TransportCredentials) (*grpc.ClientConn, error) {
 	if creds == nil {
 		creds = insecure.NewCredentials()
 	}
 	registerGRPCMetrics()
 	logger := grpcLogger(zapLog)
+	callOpts := []grpc.CallOption{}
+	if conf != nil && conf.MaxRecvMsgMB > 0 {
+		callOpts = append(callOpts, grpc.MaxCallRecvMsgSize(conf.MaxRecvMsgMB*1024*1024))
+	}
+	if conf != nil && conf.MaxSendMsgMB > 0 {
+		callOpts = append(callOpts, grpc.MaxCallSendMsgSize(conf.MaxSendMsgMB*1024*1024))
+	}
+	keepaliveTime := defaultKeepaliveTimeSec
+	keepaliveTimeout := defaultKeepaliveTimeoutSec
+	if conf != nil {
+		if conf.KeepaliveTimeSec > 0 {
+			keepaliveTime = conf.KeepaliveTimeSec
+		}
+		if conf.KeepaliveTimeoutSec > 0 {
+			keepaliveTimeout = conf.KeepaliveTimeoutSec
+		}
+	}
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                time.Second * 60,
-			Timeout:             time.Second * 20,
+			Time:                time.Duration(keepaliveTime) * time.Second,
+			Timeout:             time.Duration(keepaliveTimeout) * time.Second,
 			PermitWithoutStream: false,
 		}),
 		grpc.WithChainStreamInterceptor(
@@ -171,6 +215,9 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 			grpc_logging.UnaryClientInterceptor(logger, grpc_logging.WithLevels(grpc_logging.DefaultClientCodeToLevel)),
 		),
 	}
+	if len(callOpts) > 0 {
+		options = append(options, grpc.WithDefaultCallOptions(callOpts...))
+	}
 	if grpcResolver != nil {
 		options = append(options, grpc.WithResolvers(grpcResolver))
 	}
@@ -178,12 +225,28 @@ func newClient(addr string, lc fx.Lifecycle, zapLog *zap.Logger, grpcResolver gr
 	if err != nil {
 		return nil, fmt.Errorf("创建grpc连接出错: %w", err)
 	}
+	if target == "" {
+		target = addr
+	}
 	lc.Append(fx.StartHook(func() {
 		conn.Connect()
+		// 启动期最大 grpcClientReadyCheckTimeout 内做一次健康探测,失败不阻断启动:
+		// 仅在 metric/日志暴露,便于发现"目标服务一个都没注册"等环境问题。
+		go probeClientTargetReady(conn, target)
 	}))
-	lc.Append(fx.StopHook(func() error {
-		return conn.Close()
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			// grpc.ClientConn.Close 通常 instant,但极端阻塞场景下也用 ctx 兜底。
+			done := make(chan error, 1)
+			go func() { done <- conn.Close() }()
+			select {
+			case err := <-done:
+				return err
+			case <-ctx.Done():
+				return fmt.Errorf("关闭 grpc client conn 超时: %w", ctx.Err())
+			}
+		},
+	})
 	return conn, nil
 }
 
@@ -297,7 +360,37 @@ func registerGRPCMetrics() {
 	registerMetricsOnce.Do(func() {
 		registerCollector(serverMetrics)
 		registerCollector(clientMetrics)
+		registerCollector(clientTargetReady)
 	})
+}
+
+// secondsOrDefault 在配置值 <= 0 时回退默认值,以秒为单位返回 Duration。
+func secondsOrDefault(seconds, defaultSec int) time.Duration {
+	if seconds <= 0 {
+		return time.Duration(defaultSec) * time.Second
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// probeClientTargetReady 启动期对一个 client conn 做最多 grpcClientReadyCheckTimeout
+// 的连接探测。conn 进入 Ready 视为成功,否则记录 fail。失败不阻断 fx 启动 —
+// 仅用作可观测,生产环境某个下游短暂不可达不应让本服务起不来。
+func probeClientTargetReady(conn *grpc.ClientConn, target string) {
+	ctx, cancel := context.WithTimeout(context.Background(), grpcClientReadyCheckTimeout)
+	defer cancel()
+	for {
+		state := conn.GetState()
+		if state.String() == "READY" {
+			clientTargetReady.WithLabelValues(target, "success").Inc()
+			return
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			clientTargetReady.WithLabelValues(target, "fail").Inc()
+			logs.Warn("grpc client target 启动期未就绪,继续启动",
+				zap.String("target", target), zap.String("last_state", state.String()))
+			return
+		}
+	}
 }
 
 func registerCollector(collector prometheus_client.Collector) {

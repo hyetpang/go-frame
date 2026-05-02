@@ -80,7 +80,10 @@ func NewClientEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 	}
 	clients := make(map[string]*grpc.ClientConn, len(conf.ServiceNames))
 	for _, serviceName := range conf.ServiceNames {
-		conn, err := newClient(etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName), lc, zapLog, etcdResolver, creds)
+		conn, err := newClient(
+			etcdTarget(etcdResolver.Scheme(), conf.ServicePrefix, serviceName),
+			serviceName, conf, lc, zapLog, etcdResolver, creds,
+		)
 		if err != nil {
 			// 第 N 个失败时,显式关闭已建立的前 N-1 个 conn,
 			// 避免 fx 不进入启动阶段导致 lc.StopHook 不触发产生连接泄漏。

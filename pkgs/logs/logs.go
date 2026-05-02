@@ -16,7 +16,12 @@ type NoticeHook func(msg string, filename string, line int, fields ...zap.Field)
 // noticeHook 当前注册的通知钩子,使用 atomic.Pointer 保证读写无锁安全。
 var noticeHook atomic.Pointer[NoticeHook]
 
-// RegisterNoticeHook 注册错误日志通知钩子,后续 logs.Error 会异步触发该钩子。
+// RegisterNoticeHook 注册错误日志通知钩子,后续 logs.Error 会同步触发该钩子。
+//
+// **契约**: hook 实现必须 non-blocking — 不能做远端 IO。框架内置实现走
+// internal/components/lognotice 的有界 channel(满即丢),已满足该契约。
+// 旧版 `go hook(...)` 在 error 突发时会无背压 spawn goroutine,改为同步调用避免该风险。
+//
 // 该机制允许 pkgs/lognotice 在初始化时注入实现,避免 pkgs/logs 反向依赖。
 func RegisterNoticeHook(hook NoticeHook) {
 	noticeHook.Store(&hook)
@@ -27,15 +32,15 @@ func unregisterNoticeHook() {
 	noticeHook.Store(nil)
 }
 
-// callNoticeHook 在 logs.Error 触发时异步调用钩子,callerSkip 表示从调用 callNoticeHook 处再向上跳过几层。
+// callNoticeHook 在 logs.Error 触发时同步调用钩子,callerSkip 表示从调用 callNoticeHook 处再向上跳过几层。
+// 同步调用前提:hook 必须 non-blocking,见 RegisterNoticeHook 文档说明。
 func callNoticeHook(callerSkip int, msg string, fields ...zap.Field) {
 	hookPtr := noticeHook.Load()
 	if hookPtr == nil {
 		return
 	}
 	_, filename, line, _ := runtime.Caller(callerSkip + 1)
-	hook := *hookPtr
-	go hook(msg, filename, line, fields...)
+	(*hookPtr)(msg, filename, line, fields...)
 }
 
 // Ctx 从 context 中提取 OpenTelemetry SpanContext,附加 trace_id/span_id

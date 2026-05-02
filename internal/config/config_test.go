@@ -342,6 +342,36 @@ gorm_log_level = 4
 	}
 }
 
+// TestSafeInvokeReloadCallbackRecoversPanic 验证单个 callback panic 被收敛,
+// 后续 callback 仍能被调用 — 旧实现 panic 会沿调用栈杀掉 watch goroutine,
+// 导致后续配置变更不再触发,是隐蔽的"热加载永久失效"故障。
+func TestSafeInvokeReloadCallbackRecoversPanic(t *testing.T) {
+	initReloadMetrics()
+
+	var (
+		firstCalled  bool
+		secondCalled bool
+	)
+	first := func(_ *Config) {
+		firstCalled = true
+		panic("first callback panic")
+	}
+	second := func(_ *Config) {
+		secondCalled = true
+	}
+
+	for _, fn := range []func(*Config){first, second} {
+		safeInvokeReloadCallback(fn, &Config{})
+	}
+
+	if !firstCalled {
+		t.Fatal("第一个 callback 应被调用")
+	}
+	if !secondCalled {
+		t.Fatal("第二个 callback 应在第一个 panic 后仍被调用(panic 已被 recover)")
+	}
+}
+
 func TestLoadExampleConfigs(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {

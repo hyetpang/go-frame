@@ -1,12 +1,14 @@
 package kafka
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/IBM/sarama"
 	"github.com/dnwe/otelsarama"
 	"github.com/hyetpang/go-frame/internal/adapter/log"
+	"github.com/hyetpang/go-frame/internal/lifecycle"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
@@ -29,11 +31,15 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (sarama.Client
 	if err != nil {
 		return nil, fmt.Errorf("连接kafka出错 addr=%s: %w", conf.Addr, err)
 	}
-	lc.Append(fx.StopHook(func() {
-		if e := client.Close(); e != nil {
-			logs.Error("关闭kafka client出错", zap.Error(e))
-		}
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			if e := lifecycle.CloseWithContext(ctx, "kafka-client", client.Close); e != nil {
+				logs.Error("关闭kafka client出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return client, nil
 }
 
@@ -45,11 +51,15 @@ func NewSyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.SyncProducer
 		return nil, fmt.Errorf("创建kafka sync producer出错: %w", err)
 	}
 	syncProducer := otelsarama.WrapSyncProducer(client.Config(), rawSyncProducer)
-	lc.Append(fx.StopHook(func() {
-		if e := syncProducer.Close(); e != nil {
-			logs.Error("关闭kafka同步producer出错", zap.Error(e))
-		}
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			if e := lifecycle.CloseWithContext(ctx, "kafka-sync-producer", syncProducer.Close); e != nil {
+				logs.Error("关闭kafka同步producer出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return syncProducer, nil
 }
 
@@ -61,11 +71,17 @@ func NewAsyncProducer(lc fx.Lifecycle, client sarama.Client) (sarama.AsyncProduc
 		return nil, fmt.Errorf("创建kafka async producer出错: %w", err)
 	}
 	asyncProducer := otelsarama.WrapAsyncProducer(client.Config(), rawAsyncProducer)
-	lc.Append(fx.StopHook(func() {
-		if e := asyncProducer.Close(); e != nil {
-			logs.Error("关闭kafka异步producer出错", zap.Error(e))
-		}
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			// AsyncProducer.Close 不返回 error,包一层适配 lifecycle 签名。
+			closer := func() error { asyncProducer.Close(); return nil }
+			if e := lifecycle.CloseWithContext(ctx, "kafka-async-producer", closer); e != nil {
+				logs.Error("关闭kafka异步producer出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return asyncProducer, nil
 }
 
@@ -77,11 +93,15 @@ func NewConsumer(lc fx.Lifecycle, client sarama.Client) (sarama.Consumer, error)
 		return nil, fmt.Errorf("创建kafka consumer出错: %w", err)
 	}
 	consumer := otelsarama.WrapConsumer(rawConsumer)
-	lc.Append(fx.StopHook(func() {
-		if e := consumer.Close(); e != nil {
-			logs.Error("关闭kafka consumer出错", zap.Error(e))
-		}
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			if e := lifecycle.CloseWithContext(ctx, "kafka-consumer", consumer.Close); e != nil {
+				logs.Error("关闭kafka consumer出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return consumer, nil
 }
 

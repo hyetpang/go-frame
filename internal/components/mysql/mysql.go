@@ -1,9 +1,11 @@
 package mysql
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/hyetpang/go-frame/internal/lifecycle"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
@@ -31,15 +33,25 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (map[string]*gor
 	if err != nil {
 		return nil, err
 	}
-	lc.Append(fx.StopHook(func() {
-		for name, db := range dbs {
-			if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
-				if e := sqlDB.Close(); e != nil {
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			// 多 DB 串行受 ctx 约束:任一卡住时剩余 DB 仍能在 fx Stop timeout 内尝试关闭。
+			for name, db := range dbs {
+				if ctx.Err() != nil {
+					logs.Warn("mysql 多实例关闭被 fx Stop timeout 中止", zap.String("剩余", name))
+					return ctx.Err()
+				}
+				sqlDB, err := db.DB()
+				if err != nil || sqlDB == nil {
+					continue
+				}
+				if e := lifecycle.CloseWithContext(ctx, "mysql/"+name, sqlDB.Close); e != nil {
 					logs.Error("关闭mysql连接出错", zap.Error(e), zap.String("name", name))
 				}
 			}
-		}
-	}))
+			return nil
+		},
+	})
 	return dbs, nil
 }
 
@@ -55,13 +67,19 @@ func NewOne(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (*gorm.DB, er
 	if err != nil {
 		return nil, err
 	}
-	lc.Append(fx.StopHook(func() {
-		if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
-			if e := sqlDB.Close(); e != nil {
-				logs.Error("关闭mysql连接出错", zap.Error(e))
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			sqlDB, err := db.DB()
+			if err != nil || sqlDB == nil {
+				return nil
 			}
-		}
-	}))
+			if e := lifecycle.CloseWithContext(ctx, "mysql", sqlDB.Close); e != nil {
+				logs.Error("关闭mysql连接出错", zap.Error(e))
+				return e
+			}
+			return nil
+		},
+	})
 	return db, nil
 }
 
@@ -100,7 +118,7 @@ func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
 	nameStrategy := schema.NamingStrategy{}
 	nameStrategy.TablePrefix = conf.TablePrefix
 	if len(nameStrategy.TablePrefix) > 0 {
-		nameStrategy.TablePrefix = nameStrategy.TablePrefix + "_"
+		nameStrategy.TablePrefix += "_"
 	}
 	gormLog := zapgorm2.New(zapLog)
 	gormLog.IgnoreRecordNotFoundError = conf.GormLogIgnoreRecordNotFoundError

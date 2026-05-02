@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,10 +93,14 @@ func New(lc fx.Lifecycle, conf *config) (*zap.Logger, error) {
 	}
 	// logger和下面return的zap.Logger依赖唯一不同是zap.AddCallerSkip(1)，下面return是作为依赖给各种第三方库使用的
 	zap.ReplaceGlobals(logger.WithOptions(zap.AddCallerSkip(1)))
-	lc.Append(fx.StopHook(func() {
-		_ = zap.L().Sync()
-		_ = logger.Sync() // 日志同步
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(_ context.Context) error {
+			// zap Sync 仅 flush stderr/file buffer,毫秒级返回,无需 ctx 兜底。
+			_ = zap.L().Sync()
+			_ = logger.Sync()
+			return nil
+		},
+	})
 	return logger, nil
 }
 

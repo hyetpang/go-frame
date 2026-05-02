@@ -24,10 +24,10 @@ func WithProviders(providers ...any) Option {
 }
 
 // 注册需要被调用的函数
-func WithInvokes(Invokes ...any) Option {
+func WithInvokes(invokes ...any) Option {
 	return func(o *Options) {
-		for _, Invoke := range Invokes {
-			o.FxOptions = append(o.FxOptions, fx.Invoke(Invoke))
+		for _, invoke := range invokes {
+			o.FxOptions = append(o.FxOptions, fx.Invoke(invoke))
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package lognotice
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -56,9 +57,13 @@ func newNotice(conf *config, lc fx.Lifecycle) (lognoticepkg.Notifier, error) {
 		sender:   sender,
 	}
 	go n.Watch()
-	lc.Append(fx.StopHook(func() {
-		n.Close()
-	}))
+	lc.Append(fx.Hook{
+		OnStop: func(_ context.Context) error {
+			// Close 仅关闭内部 channel 触发 watch goroutine 退出,语义瞬时,无需 ctx 兜底。
+			n.Close()
+			return nil
+		},
+	})
 	return n, nil
 }
 
@@ -83,6 +88,16 @@ func (notice *notice) Notice(msg string, filename string, line int, fields ...za
 
 func (notice *notice) Watch() {
 	for {
+		// Close 后 done 已关:即使 watchOnce 因 panic 提前 defer 返回(exit=false),
+		// 这里也直接退出,避免误增 noticeRestart 计数与多跑一轮 ticker 创建/释放。
+		select {
+		case <-notice.done:
+			if noticeAliveGauge != nil {
+				noticeAliveGauge.Set(0)
+			}
+			return
+		default:
+		}
 		exit := notice.watchOnce()
 		if exit {
 			if noticeAliveGauge != nil {
@@ -111,19 +126,21 @@ func (notice *notice) watchOnce() (exit bool) {
 	if noticeAliveGauge != nil {
 		noticeAliveGauge.Set(1)
 	}
-	flushInterval := noticeLimitWindow
+	// limiter == nil(IsLimitDisabled)时不创建 flushTicker,
+	// 用 nil channel 让 select 永远不命中 flush 分支,避免 1min ticker 空转。
+	var flushC <-chan time.Time
 	if notice.limiter != nil {
-		flushInterval = notice.limiter.window
+		flushTicker := time.NewTicker(notice.limiter.window)
+		defer flushTicker.Stop()
+		flushC = flushTicker.C
 	}
-	flushTicker := time.NewTicker(flushInterval)
-	defer flushTicker.Stop()
 	aliveTicker := time.NewTicker(noticeAliveInterval)
 	defer aliveTicker.Stop()
 	for {
 		select {
 		case msg := <-notice.noticeCh:
 			notice.limiter.handle(notice.sender, notice.conf.Name, notice.conf.Notice, msg)
-		case now := <-flushTicker.C:
+		case now := <-flushC:
 			notice.limiter.flushExpired(notice.sender, notice.conf.Name, notice.conf.Notice, now)
 		case <-aliveTicker.C:
 			if noticeAliveGauge != nil {

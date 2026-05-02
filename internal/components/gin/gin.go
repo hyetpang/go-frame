@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	// httpReadyTimeout 启动期 self-check 的总超时,避免新检查拖慢 fx 启动
-	httpReadyTimeout = 200 * time.Millisecond
+	// defaultHTTPReadyTimeoutMs 启动期 self-check 的总超时默认值,业务可通过
+	// http.ready_timeout_ms 覆盖。旧值 200ms 在 CI 容器/慢启动节点偶发误报启动失败,
+	// 1s 是经验上覆盖绝大多数环境又不至于拖慢 fx 启动的折中。
+	defaultHTTPReadyTimeoutMs = 1000
 	// httpMaxHeaderBytes 限制 HTTP 请求 header 总大小,避免恶意大 header 攻击
 	httpMaxHeaderBytes = 1 << 20 // 1 MiB
 	// httpMaxMultipartMemory gin 解析 multipart 表单时驻留内存上限,超出转写临时文件
@@ -54,9 +56,13 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config, tracingConf *frameco
 		MaxHeaderBytes:    httpMaxHeaderBytes,
 	}
 
+	readyTimeout := time.Duration(conf.ReadyTimeoutMs) * time.Millisecond
+	if readyTimeout <= 0 {
+		readyTimeout = defaultHTTPReadyTimeoutMs * time.Millisecond
+	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return startHTTPServer(ctx, srv, lis, router, conf.IsProd)
+			return startHTTPServer(ctx, srv, lis, router, conf.IsProd, readyTimeout)
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -69,7 +75,7 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, conf *config, tracingConf *frameco
 	return router, nil
 }
 
-func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, router *gin.Engine, isProd bool) error {
+func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, router *gin.Engine, isProd bool, readyTimeout time.Duration) error {
 	errC := make(chan error, 1)
 	go func() {
 		if err := srv.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -79,9 +85,9 @@ func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, ro
 
 	// 用一个短超时 + 主动 self-check 替代 select 的 default 分支,
 	// 既避免固定 1s 等待,又能在启动失败时快速感知。
-	checkCtx, cancel := context.WithTimeout(ctx, httpReadyTimeout)
+	checkCtx, cancel := context.WithTimeout(ctx, readyTimeout)
 	defer cancel()
-	if err := selfCheckHTTPReady(checkCtx, lis.Addr().String(), errC); err != nil {
+	if err := selfCheckHTTPReady(checkCtx, lis.Addr().String(), errC, readyTimeout); err != nil {
 		return err
 	}
 
@@ -96,7 +102,7 @@ func startHTTPServer(ctx context.Context, srv *http.Server, lis net.Listener, ro
 
 // selfCheckHTTPReady 主动 GET /health_check 验证 HTTP 服务真的能接受请求。
 // errC 中的 Serve 错误优先返回,避免误报启动成功。
-func selfCheckHTTPReady(ctx context.Context, addr string, errC <-chan error) error {
+func selfCheckHTTPReady(ctx context.Context, addr string, errC <-chan error, timeout time.Duration) error {
 	select {
 	case err := <-errC:
 		if err != nil {
@@ -112,7 +118,7 @@ func selfCheckHTTPReady(ctx context.Context, addr string, errC <-chan error) err
 	if err != nil {
 		return fmt.Errorf("构造http健康检查请求失败: %w", err)
 	}
-	client := &http.Client{Timeout: httpReadyTimeout}
+	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		// self-check 失败时再确认 Serve 是否已经直接挂掉
