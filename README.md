@@ -152,6 +152,32 @@ app.Run(options.WithTracing())
 
 配置 `[tracing] enable=false` 时返回 noop TracerProvider，零成本回退；`enable=true` 时按 `endpoint`/`protocol` 上报到 OTLP collector，并自动接管 gRPC、HTTP、MySQL、Redis、Kafka 的 instrumentation。生产环境也建议默认调用本 option，按配置开关控制是否上报。
 
+## Option 兼容性矩阵
+
+按需启用组件时，部分 option 之间有依赖或互斥约束。常见组合速查：
+
+| Option | 必须先注册 | 提供的 fx 依赖 | 备注 |
+|--------|------------|----------------|------|
+| `WithHttp()` | — | `gin.IRouter` | 默认 self-check 1s，可配 `[http] ready_timeout_ms` |
+| `WithMysql()` | — | `*gorm.DB`（多库 `map[string]*gorm.DB`） | `[[mysql]]` 同名报错；`name="default"` 优先 |
+| `WithRedis()` | — | `redis.UniversalClient` | tracing 仅在 `[tracing] enable=true` 时挂载 |
+| `WithEtcd()` | — | `*clientv3.Client` | gRPC 服务发现的前置依赖 |
+| `WithGRPCServer()` | — | `*grpc.Server` | 直连模式 |
+| `WithGRPCServer(GrpcOptionEtcd())` | `WithEtcd()` | `*grpc.Server` + 自动注册到 etcd | 缺 etcd 会 fx missing dependency |
+| `WithGRPCClient()` | — | `*grpc.ClientConn` | 直连模式 |
+| `WithGRPCClient(GrpcOptionEtcd())` | `WithEtcd()` | `map[string]*grpc.ClientConn` | 启动期对每个 target 做 500ms 健康探测，失败仅 warn 不阻断 |
+| `WithLogNotice()` | — | `lognotice.Notifier` | 失败 webhook 启动期校验，运行期复检 IP 防 DNS rebinding |
+| `WithKafkaClient()` | — | `sarama.Client` | 自管 Producer/Consumer |
+| `WithKafkaSyncProducer()` | — | + `sarama.SyncProducer` | 内部已含 `WithKafkaClient` |
+| `WithKafkaAsyncProducer()` | — | + `sarama.AsyncProducer` | 内部已含 `WithKafkaClient` |
+| `WithKafkaConsumer()` | — | + `sarama.Consumer` | 内部已含 `WithKafkaClient` |
+| `WithKafka()` | — | 全 4 个 | **Deprecated**，按需选拆分版 |
+| `WithTracing()` | — | `*sdktrace.TracerProvider` | `enable=false` 时返回 noop，零成本回退 |
+| `WithGoutConfig()` | — | — | 修改 gout 全局 Timeout/Debug，业务侧使用 |
+| `WithTasks()` | — | `*cron.Cron` | 6 段表达式 + `WithSeconds()` |
+
+> 关闭顺序：fx 按注册顺序逆序关闭。`WithKafka*Producer` 与 `WithKafkaConsumer` 必须先于 `WithKafkaClient` 关闭（fx 自动保证），`WithGRPCClient(Etcd)` 在 `WithEtcd` 之前关闭。所有第三方 Close 均通过 `internal/lifecycle.CloseWithContext` 与 fx Stop ctx 竞速，避免单个慢 Close 拖死整个 Stop 流程。
+
 ## HTTP 约定
 
 默认响应结构：

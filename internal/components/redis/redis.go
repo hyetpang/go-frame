@@ -62,7 +62,7 @@ func newRedis(conf *config) (redis.UniversalClient, error) {
 		TLSConfig:    tlsCfg,
 	}
 	redisClient := redis.NewClient(redisOptions)
-	ctx, cancel := context.WithTimeout(context.Background(), constants.CtxTimeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.StartupCtxTimeout)
 	defer cancel()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		_ = redisClient.Close()
