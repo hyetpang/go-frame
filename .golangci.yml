@@ -1,0 +1,86 @@
+# golangci-lint 配置
+# 设计目标:抓住此前审计中发现的几类问题(并发可见性/资源未释放/全局副作用),
+# 同时不堵塞日常开发(test 文件放宽、第三方协议字段命名豁免、向后兼容的公共 API 命名豁免)。
+
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # .claude/.omc 是工作区辅助目录,worktrees 里是 agent 副本,不参与编译/lint
+  exclude-dirs:
+    - \.claude
+    - \.omc
+  exclude-rules:
+    # 测试文件放宽:容许 errcheck/gosec 报警,测试更看重清晰度
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - bodyclose
+        - revive
+    # 第三方 API 响应结构命名(snake_case)不强制 var-naming
+    - path: internal/components/lognotice/sender_.*\.go
+      linters:
+        - revive
+      text: "var-naming"
+    # 公共 API 历史命名:WithHttp/UseHttp/GenZapNanoId/HttpCallTimeOut 等已被业务侧引用,
+    # 重命名是破坏性变更。在新增 API 时遵循 var-naming(HTTP/ID),旧名保留豁免。
+    - path: pkgs/(options|common)/.*\.go
+      linters:
+        - revive
+      text: "var-naming"
+    # G404 jitter/退避场景用 math/rand 是合理的,无需 crypto 强随机
+    - path: internal/components/grpc/grpc_etcd_keep_live\.go
+      linters:
+        - gosec
+      text: "G404"
+
+linters:
+  disable-all: true
+  enable:
+    # 正确性
+    - errcheck       # 未处理的 error
+    - govet          # 标准 vet 规则
+    - staticcheck    # SA 系列(资源泄漏/无效操作/弃用 API)
+    - ineffassign    # 无效赋值
+    - unused         # 死代码
+    - gosimple       # 简化建议
+    - unconvert      # 无意义转换
+    - copyloopvar    # Go 1.22+ 循环变量陷阱
+    # 安全
+    - gosec          # 常见安全反模式(SSRF/命令注入/弱随机等)
+    - bodyclose      # http.Response.Body 未关
+    # 代码风格(轻量,避免过度噪声)
+    - gocritic       # 通用代码 smell
+    - revive         # 命名/结构(默认规则,不强制注释)
+    - misspell       # 常见拼写错误
+
+linters-settings:
+  gosec:
+    excludes:
+      # G104 由 errcheck 覆盖,避免重复
+      - G104
+      # G304 文件路径来自启动期已校验的配置,业务侧使用场景多
+      - G304
+      # G115 整数转换:本框架 int↔int8 转换都来自 oneof=-1/-2/0/1/2 校验过的配置,
+      # 实际不会越界。逐处加 #nosec 注释噪声大,统一豁免。
+      - G115
+  errcheck:
+    exclude-functions:
+      - (io.Closer).Close
+      - (*go.uber.org/zap.Logger).Sync
+      - fmt.Fprintf
+      - fmt.Fprintln
+  revive:
+    rules:
+      - name: var-naming
+      - name: package-comments
+        disabled: true
+      - name: exported
+        disabled: true
+  gocritic:
+    disabled-checks:
+      - ifElseChain  # 与 switch 转换有时降低可读性,交给人判断
