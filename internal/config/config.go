@@ -318,21 +318,35 @@ func LoadWithEnv(baseFile string) (*Config, error) {
 		return nil, err
 	}
 
-	if env := strings.TrimSpace(os.Getenv(EnvVar)); env != "" {
-		envFile := envOverlayPath(baseFile, env)
-		if _, err := os.Stat(envFile); err == nil {
-			v.SetConfigFile(envFile)
-			if mergeErr := v.MergeInConfig(); mergeErr != nil {
-				return nil, fmt.Errorf("合并环境配置 %s 出错: %w", envFile, mergeErr)
-			}
-			// MergeInConfig 把当前 ConfigFile 切到 overlay,这里恢复回 baseFile 以便外部观感正确
-			v.SetConfigFile(baseFile)
-		} else if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("读取环境配置 %s 出错: %w", envFile, err)
-		}
+	if err := mergeEnvOverlay(v, baseFile); err != nil {
+		return nil, err
 	}
 
 	return buildConfig(v, baseFile)
+}
+
+// mergeEnvOverlay 按 APP_ENV 把 app.${APP_ENV}.toml overlay 合并进 v(若存在)。
+// APP_ENV 为空或 overlay 文件不存在时静默跳过,保持与 baseFile 等价的语义。
+// 抽出来供 LoadWithEnv 与 watchPath 热加载共用,确保热更后 overlay 不丢失。
+func mergeEnvOverlay(v *viper.Viper, baseFile string) error {
+	env := strings.TrimSpace(os.Getenv(EnvVar))
+	if env == "" {
+		return nil
+	}
+	envFile := envOverlayPath(baseFile, env)
+	if _, err := os.Stat(envFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取环境配置 %s 出错: %w", envFile, err)
+	}
+	v.SetConfigFile(envFile)
+	if mergeErr := v.MergeInConfig(); mergeErr != nil {
+		return fmt.Errorf("合并环境配置 %s 出错: %w", envFile, mergeErr)
+	}
+	// MergeInConfig 把当前 ConfigFile 切到 overlay,这里恢复回 baseFile 以便外部观感正确
+	v.SetConfigFile(baseFile)
+	return nil
 }
 
 // envOverlayPath 根据 baseFile 与 env 推导环境覆盖文件路径。
@@ -432,7 +446,8 @@ func safeInvokeReloadCallback(fn func(*Config), newConf *Config) {
 // 自行用 atomic.Value 等机制更新 *ZapLog / *Gout 等被消费的字段,从而保证 fx
 // 单例的引用不失效。一次只能 Watch 一个文件,后续调用会追加回调。
 //
-// 注意: WatchAndReload 仅重读 baseFile,不重新合并 APP_ENV overlay。生产环境请勿依赖该方法做环境覆盖热更。
+// 注意: 热加载会复用 LoadWithEnv 的合并逻辑,在重读 baseFile 后重新叠加 APP_ENV overlay,
+// 因此环境覆盖在热更后仍然生效,不会被打回 base 值。
 func (conf *Config) WatchAndReload(onChange func(*Config)) {
 	if onChange == nil {
 		return
@@ -461,39 +476,42 @@ func watchPath(path string, callbacks *reloadCallbacks) {
 		debounceTimer *time.Timer
 		debounceMu    sync.Mutex
 	)
+	reload := func() {
+		// 用独立 viper 实例重新读取文件,避免复用 v(viper watch 内部
+		// 已调用 ReadInConfig,解析失败时会保留旧数据导致无法感知错误)。
+		fresh := viper.New()
+		fresh.SetConfigFile(path)
+		fresh.SetConfigType("toml")
+		if err := fresh.ReadInConfig(); err != nil {
+			reloadFailedCounter.Inc()
+			logs.Error("配置热加载失败:文件解析出错", zap.Error(err), zap.String("path", path))
+			return
+		}
+		// 复用 LoadWithEnv 的 overlay 合并逻辑,确保热更后 APP_ENV 覆盖不丢失。
+		if err := mergeEnvOverlay(fresh, path); err != nil {
+			reloadFailedCounter.Inc()
+			logs.Error("配置热加载失败:合并环境覆盖出错", zap.Error(err), zap.String("path", path))
+			return
+		}
+		newConf, err := buildConfig(fresh, path)
+		if err != nil {
+			reloadFailedCounter.Inc()
+			logs.Error("配置热加载失败:Unmarshal 出错", zap.Error(err), zap.String("path", path))
+			return
+		}
+		reloadSuccessCounter.Inc()
+		for _, fn := range callbacks.snapshot() {
+			safeInvokeReloadCallback(fn, newConf)
+		}
+	}
 	v.OnConfigChange(func(_ fsnotify.Event) {
+		// 每次事件都先 Stop 旧 timer 再新建,避免依赖"对已 fire timer 调 Reset"的隐式语义。
 		debounceMu.Lock()
 		defer debounceMu.Unlock()
 		if debounceTimer != nil {
-			debounceTimer.Reset(200 * time.Millisecond)
-			return
+			debounceTimer.Stop()
 		}
-		debounceTimer = time.AfterFunc(200*time.Millisecond, func() {
-			debounceMu.Lock()
-			debounceTimer = nil
-			debounceMu.Unlock()
-
-			// 用独立 viper 实例重新读取文件,避免复用 v(viper watch 内部
-			// 已调用 ReadInConfig,解析失败时会保留旧数据导致无法感知错误)。
-			fresh := viper.New()
-			fresh.SetConfigFile(path)
-			fresh.SetConfigType("toml")
-			if err := fresh.ReadInConfig(); err != nil {
-				reloadFailedCounter.Inc()
-				logs.Error("配置热加载失败:文件解析出错", zap.Error(err), zap.String("path", path))
-				return
-			}
-			newConf, err := buildConfig(fresh, path)
-			if err != nil {
-				reloadFailedCounter.Inc()
-				logs.Error("配置热加载失败:Unmarshal 出错", zap.Error(err), zap.String("path", path))
-				return
-			}
-			reloadSuccessCounter.Inc()
-			for _, fn := range callbacks.snapshot() {
-				safeInvokeReloadCallback(fn, newConf)
-			}
-		})
+		debounceTimer = time.AfterFunc(200*time.Millisecond, reload)
 	})
 	v.WatchConfig()
 }
@@ -532,11 +550,29 @@ func (conf *Config) ConfigFilePath() string {
 // 是否真有配置改用必填字段显式判定,避免依赖结构体相等比较 — 后续给 MySQL 新增 bool 等
 // 字段时,one != (MySQL{}) 会因零值差异误判,而 Name/ConnectString 都是必填的稳定锚点。
 func unmarshalMySQL(v *viper.Viper, conf *Config) error {
-	if err := v.UnmarshalKey("mysql", &conf.MySQL); err == nil && len(conf.MySQL) > 0 {
+	conf.MySQL = nil
+	// mysql 段缺失时直接返回,视作未配置 mysql。
+	if !v.IsSet("mysql") {
+		return nil
+	}
+
+	// 数组形式 [[mysql]] 命中 []MySQL;raw 是数组时解析失败属于真出错,直接返回。
+	rawIsArray := false
+	if _, ok := v.Get("mysql").([]any); ok {
+		rawIsArray = true
+	}
+	var arr []MySQL
+	if err := v.UnmarshalKey("mysql", &arr); err != nil {
+		if rawIsArray {
+			return fmt.Errorf("mysql数组配置Unmarshal到对象出错: %w", err)
+		}
+		// 非数组(单表形式)下数组解析失败属预期降级,继续尝试单实例解析。
+	} else if len(arr) > 0 {
+		conf.MySQL = arr
 		return checkMySQLDuplicateNames(conf.MySQL)
 	}
-	conf.MySQL = nil
 
+	// 单表形式 [mysql] 视作长度为 1 的数组;此处解析失败属真出错。
 	var one MySQL
 	if err := v.UnmarshalKey("mysql", &one); err != nil {
 		return fmt.Errorf("mysql配置Unmarshal到对象出错: %w", err)

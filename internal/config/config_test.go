@@ -342,6 +342,40 @@ gorm_log_level = 4
 	}
 }
 
+// TestUnmarshalMySQLReturnsErrorOnRealParseFailure 验证 mysql 段类型错误(标量赋给表)
+// 时返回错误而非静默降级为 nil。
+func TestUnmarshalMySQLReturnsErrorOnRealParseFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	// mysql 写成标量字符串,既不是数组也不是表,UnmarshalKey 到 struct/slice 都会真出错
+	if err := os.WriteFile(path, []byte(`
+mysql = "not-a-table"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("期望 mysql 段解析真出错时返回错误,但 Load 通过了")
+	}
+}
+
+// TestUnmarshalMySQLArrayParseErrorNotSwallowed 验证数组形式 [[mysql]] 中字段类型错误
+// 时,数组解析的 err 不被静默吞掉降级,而是直接返回错误。
+func TestUnmarshalMySQLArrayParseErrorNotSwallowed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.toml")
+	if err := os.WriteFile(path, []byte(`
+[[mysql]]
+name = "a"
+connect_string = "x"
+gorm_log_level = "not-an-int"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("期望数组形式 mysql 字段类型错误时返回错误,但 Load 通过了")
+	}
+}
+
 // TestSafeInvokeReloadCallbackRecoversPanic 验证单个 callback panic 被收敛,
 // 后续 callback 仍能被调用 — 旧实现 panic 会沿调用栈杀掉 watch goroutine,
 // 导致后续配置变更不再触发,是隐蔽的"热加载永久失效"故障。
@@ -369,6 +403,66 @@ func TestSafeInvokeReloadCallbackRecoversPanic(t *testing.T) {
 	}
 	if !secondCalled {
 		t.Fatal("第二个 callback 应在第一个 panic 后仍被调用(panic 已被 recover)")
+	}
+}
+
+// TestWatchPathReappliesEnvOverlay 验证热加载时仍会重新叠加 APP_ENV overlay,
+// 而不是把配置打回 base 值。这里通过修改 base 文件触发热加载,期望 overlay
+// 中的 server.run_mode 仍然生效。
+func TestWatchPathReappliesEnvOverlay(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app.toml")
+	dev := filepath.Join(dir, "app.dev.toml")
+	if err := os.WriteFile(base, []byte(`
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":8080"
+
+[redis]
+addr = "127.0.0.1:6379"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// overlay 覆盖 run_mode 为 dev
+	if err := os.WriteFile(dev, []byte(`
+[server]
+run_mode = "dev"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("APP_ENV", "dev")
+	initReloadMetrics()
+
+	var callbacks reloadCallbacks
+	var lastRunMode atomic.Value
+	lastRunMode.Store("")
+	callbacks.add(func(c *Config) {
+		lastRunMode.Store(c.Server.RunMode)
+	})
+
+	watchPath(base, &callbacks)
+
+	// 修改 base 触发热加载,但 overlay 应仍生效
+	if err := os.WriteFile(base, []byte(`
+[server]
+run_mode = "prod"
+
+[http]
+addr = ":9999"
+
+[redis]
+addr = "127.0.0.1:6379"
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	if got := lastRunMode.Load().(string); got != "dev" {
+		t.Fatalf("热加载后 server.run_mode = %q, want dev(overlay 应被重新合并,而非打回 base 的 prod)", got)
 	}
 }
 
@@ -483,7 +577,7 @@ func TestWatchAndReloadDebouncesRapidChanges(t *testing.T) {
 	watchPath(path, &callbacks)
 
 	// 在 100ms 内连续写入 3 次合法配置
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		content := validToml + "\n# change " + string(rune('0'+i)) + "\n"
 		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 			t.Fatal(err)
