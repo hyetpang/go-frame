@@ -227,14 +227,16 @@ func validatePprofCredentials(username, password string) error {
 }
 
 func noRoute(ctx *gin.Context) {
-	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
-	logs.Error("路由不存在", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
+	// 404 属正常流量噪声(扫描器/爬虫刷不存在路径),用 ErrorWithoutNotice 记录
+	// 但不触发 lognotice 告警链路,避免被外部请求刷出海量告警。method/path/ip 拆成
+	// 独立字段,不拼进 msg,保证告警(若将来调整)按固定 msg 聚合而非按可变 URL 爆炸。
+	logs.ErrorWithoutNotice("路由不存在", zap.String("method", ctx.Request.Method), zap.String("path", ctx.Request.URL.Path), zap.String("ip", ctx.ClientIP()))
 	common.Wrap(ctx).Fail(base.CodeErrNotFound)
 }
 
 func noMethodHandler(ctx *gin.Context) {
-	url := ctx.Request.Method + ":" + ctx.Request.URL.Path
-	logs.Error("请求方法不允许", zap.String("method", ctx.Request.Method), zap.String("url", url), zap.String("ip", ctx.ClientIP()))
+	// 405 同 404,属正常流量噪声,记录但不触发告警通知,避免外部请求刷告警。
+	logs.ErrorWithoutNotice("请求方法不允许", zap.String("method", ctx.Request.Method), zap.String("path", ctx.Request.URL.Path), zap.String("ip", ctx.ClientIP()))
 	ctx.AbortWithStatus(http.StatusMethodNotAllowed)
 }
 
