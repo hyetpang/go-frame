@@ -21,7 +21,7 @@ var (
 
 // fallbackCounter 在 GenID 走 nanoid 失败回退路径时与 UnixNano + pid 一起拼成 ID,
 // 把"同进程同纳秒生成两次"会碰撞的窗口收敛掉,避免 etcd lease key 等需要唯一性的场景误共用。
-var fallbackCounter uint64
+var fallbackCounter atomic.Uint64
 
 func GenNanoID() (string, error) {
 	return gonanoid.Generate(alphaNumber, 10)
@@ -43,7 +43,7 @@ func GenID() string {
 	nanoId, err := GenNanoID()
 	if err != nil {
 		logs.Error("nanoid生成出错,回退到 UnixNano+pid+counter", zap.Error(err))
-		seq := atomic.AddUint64(&fallbackCounter, 1)
+		seq := fallbackCounter.Add(1)
 		return strconv.FormatInt(time.Now().UnixNano(), 10) +
 			"-" + strconv.Itoa(os.Getpid()) +
 			"-" + strconv.FormatUint(seq, 10)
@@ -57,7 +57,7 @@ func TryGenNanoIDFromAlphaNumber(size, tryCount int, isValid func(id string) (bo
 	if tryCount <= 0 {
 		tryCount = 1
 	}
-	for i := 0; i < tryCount; i++ {
+	for range tryCount {
 		id, err := gonanoid.Generate(alphaNumber, size)
 		if err != nil {
 			return "", err

@@ -62,15 +62,12 @@ func TestConcurrentInjectAndNotice(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 50 {
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			Inject(&recordingNotifier{})
-		}()
-		go func() {
-			defer wg.Done()
+		})
+		wg.Go(func() {
 			Notice("concurrent", "f.go", 1)
-		}()
+		})
 	}
 	wg.Wait()
 }

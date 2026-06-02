@@ -92,11 +92,11 @@ func TestNewGinRejectsWeakPprofPassword(t *testing.T) {
 // TestNoRouteAndNoMethodDoNotTriggerNotice 验证 404/405 只记录日志、不触发告警通知钩子,
 // 防止扫描器/爬虫刷不存在路由或非法方法时把 lognotice 告警链路打爆。
 func TestNoRouteAndNoMethodDoNotTriggerNotice(t *testing.T) {
-	var noticeCalls int32
+	var noticeCalls atomic.Int32
 	// 注册一个会计数的通知钩子;只有走 logs.Error(带通知)才会命中,
 	// logs.ErrorWithoutNotice 不应触发它。
 	logs.RegisterNoticeHook(func(msg string, filename string, line int, fields ...zap.Field) {
-		atomic.AddInt32(&noticeCalls, 1)
+		noticeCalls.Add(1)
 	})
 	// 测试结束后用空操作钩子覆盖,避免影响其它测试。
 	t.Cleanup(func() {
@@ -128,7 +128,7 @@ func TestNoRouteAndNoMethodDoNotTriggerNotice(t *testing.T) {
 		t.Fatalf("noMethodHandler status = %d, want %d", rsp.Code, http.StatusMethodNotAllowed)
 	}
 
-	if calls := atomic.LoadInt32(&noticeCalls); calls != 0 {
+	if calls := noticeCalls.Load(); calls != 0 {
 		t.Fatalf("notice hook triggered %d times for 404/405, want 0", calls)
 	}
 }

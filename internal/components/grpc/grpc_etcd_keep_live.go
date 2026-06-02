@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/hyetpang/go-frame/pkgs/common"
@@ -155,7 +155,7 @@ func jitter(d time.Duration) time.Duration {
 	if d <= 0 {
 		return 0
 	}
-	return d + time.Duration(rand.Int63n(int64(d)/2+1))
+	return d + time.Duration(rand.Int64N(int64(d)/2+1))
 }
 
 // sleepWithCtx 在 ctx 取消时立即返回 false,避免 time.Sleep 无视取消信号。
