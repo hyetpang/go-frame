@@ -11,6 +11,9 @@ func TestPagination_GetPageSize(t *testing.T) {
 		{"zero returns default", 0, defaultPageSize},
 		{"negative returns default", -5, defaultPageSize},
 		{"positive returns itself", 30, 30},
+		{"at max returns itself", maxPageSize, maxPageSize},
+		{"above max clamped to max", maxPageSize + 1, maxPageSize},
+		{"huge value clamped to max", 1000000, maxPageSize},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
