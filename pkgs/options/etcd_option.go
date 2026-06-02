@@ -10,4 +10,3 @@ func WithEtcd() Option {
 		o.FxOptions = append(o.FxOptions, fx.Provide(etcd.New))
 	}
 }
-

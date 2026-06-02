@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyetpang/go-frame/pkgs/logs"
 	lognoticepkg "github.com/hyetpang/go-frame/pkgs/lognotice"
+	"github.com/hyetpang/go-frame/pkgs/logs"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

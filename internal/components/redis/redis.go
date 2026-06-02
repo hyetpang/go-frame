@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyetpang/go-frame/internal/constants"
 	frameconfig "github.com/hyetpang/go-frame/internal/config"
+	"github.com/hyetpang/go-frame/internal/constants"
 	"github.com/hyetpang/go-frame/internal/lifecycle"
 	"github.com/hyetpang/go-frame/pkgs/common"
 	"github.com/hyetpang/go-frame/pkgs/logs"

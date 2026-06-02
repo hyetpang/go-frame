@@ -9,11 +9,11 @@ import (
 
 // 指标使用 sync.Once 包装,避免重复注册触发 promauto panic(包级 init 在测试反复 build 时也安全)。
 var (
-	metricsOnce         sync.Once
-	noticeDropped       prometheus.Counter
-	noticeRestart       prometheus.Counter
-	noticeAliveGauge    prometheus.Gauge
-	lognoticeEvicted    prometheus.Counter
+	metricsOnce      sync.Once
+	noticeDropped    prometheus.Counter
+	noticeRestart    prometheus.Counter
+	noticeAliveGauge prometheus.Gauge
+	lognoticeEvicted prometheus.Counter
 )
 
 func initMetrics() {
