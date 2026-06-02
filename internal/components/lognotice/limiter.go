@@ -49,12 +49,18 @@ func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg
 		return
 	}
 	current := limiter.now()
-	limiter.flushExpired(sender, serviceName, url, current)
-
+	// 过期 flush 不再在每条消息处理时全表遍历 + 同步 HTTP 发送(5s 超时会阻塞
+	// watch 处理循环导致 noticeCh 写满丢弃),改为依赖 watchOnce 的 flushTicker 周期触发。
+	// 这里仅对命中的 key 做就地过期判断:已过期则先聚合上报再视为一条新通知重新计数。
 	key := msg.key()
-	if item, ok := limiter.pending[key]; ok && current.Before(item.expiresAt) {
-		item.repeats++
-		return
+	if item, ok := limiter.pending[key]; ok {
+		if current.Before(item.expiresAt) {
+			item.repeats++
+			return
+		}
+		// 命中 key 已过期:先把窗口内累计上报,再删除让下方按新通知重新立即发送
+		limiter.sendSummary(sender, serviceName, url, item)
+		delete(limiter.pending, key)
 	}
 
 	_ = sender.Send(serviceName, url, msg)
@@ -77,6 +83,7 @@ func (limiter *noticeLimiter) handle(sender sender, serviceName, url string, msg
 		content:   msg,
 		expiresAt: current.Add(limiter.window),
 		addedAt:   current,
+		repeats:   1, // 首条立即发送即计为 1 次,后续命中递增,summary 口径与真实发生次数对齐
 	}
 }
 
@@ -104,7 +111,8 @@ func (limiter *noticeLimiter) flushAll(sender sender, serviceName, url string) {
 }
 
 func (limiter *noticeLimiter) sendSummary(sender sender, serviceName, url string, item *limitedNotice) {
-	if item.repeats <= 0 {
+	// repeats 含首条立即发送那次,故 <=1 表示窗口内仅发生一次,无需补发聚合摘要。
+	if item.repeats <= 1 {
 		return
 	}
 	summary := item.content

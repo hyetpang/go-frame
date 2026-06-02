@@ -37,11 +37,12 @@ func (s *feiShuSender) Send(name, url string, msg noticeContent) error {
 	}
 	response := new(feiShuSendMsgRsp)
 	if err := s.postJSON(context.Background(), url, params, response); err != nil {
-		logs.ErrorWithoutNotice("飞书发送消息出错", zap.Error(err), zap.Any("params", params))
+		// 仅记 url/类型/error,不重复打印含通知文案的完整 params,避免敏感内容反复落盘
+		logs.ErrorWithoutNotice("飞书发送消息出错", zap.String("url", url), zap.String("type", "feishu"), zap.Error(err))
 		return err
 	}
 	if response.Code > 0 {
-		logs.ErrorWithoutNotice("飞书发送消息出错，飞书接口返回码不是0", zap.Any("params", params), zap.Int("code", response.Code), zap.String("msg", response.Msg))
+		logs.ErrorWithoutNotice("飞书发送消息出错，飞书接口返回码不是0", zap.String("url", url), zap.String("type", "feishu"), zap.Int("code", response.Code), zap.String("msg", response.Msg))
 		return errors.New("飞书发送消息出错，飞书接口返回码不是0")
 	}
 	return nil

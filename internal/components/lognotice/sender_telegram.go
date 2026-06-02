@@ -42,11 +42,12 @@ func (s *telegramSender) Send(name, url string, msg noticeContent) error {
 	}
 	response := new(telegramSenderMsgRsp)
 	if err := s.postJSON(context.Background(), url, params, response); err != nil {
-		logs.ErrorWithoutNotice("telegram发送消息出错", zap.Error(err), zap.Any("params", params))
+		// 仅记 url/类型/error,不重复打印含通知文案的完整 params,避免敏感内容反复落盘
+		logs.ErrorWithoutNotice("telegram发送消息出错", zap.String("url", url), zap.String("type", "telegram"), zap.Error(err))
 		return err
 	}
 	if response.ErrorCode > 0 || !response.OK {
-		logs.ErrorWithoutNotice("telegram发送消息出错，telegram接口返回码不是0", zap.Any("params", params), zap.Int("error_code", response.ErrorCode), zap.String("description", response.Description))
+		logs.ErrorWithoutNotice("telegram发送消息出错，telegram接口返回码不是0", zap.String("url", url), zap.String("type", "telegram"), zap.Int("error_code", response.ErrorCode), zap.String("description", response.Description))
 		return errors.New("telegram发送消息出错，telegram接口返回码不是0")
 	}
 	return nil

@@ -86,7 +86,14 @@ func (notice *notice) Notice(msg string, filename string, line int, fields ...za
 	}
 }
 
+const (
+	// watch goroutine panic 后重启的退避:递增 + 封顶,防止发送器稳定 panic 时忙循环。
+	noticeRestartBackoffStep = 200 * time.Millisecond
+	noticeRestartBackoffMax  = time.Second
+)
+
 func (notice *notice) Watch() {
+	var backoff time.Duration
 	for {
 		// Close 后 done 已关:即使 watchOnce 因 panic 提前 defer 返回(exit=false),
 		// 这里也直接退出,避免误增 noticeRestart 计数与多跑一轮 ticker 创建/释放。
@@ -109,6 +116,20 @@ func (notice *notice) Watch() {
 			noticeRestart.Inc()
 		}
 		logs.ErrorWithoutNotice("Watch goroutine crashed, restarting...")
+		// 重启前退避(递增封顶 1s),避免发送器稳定 panic 时忙循环空耗 CPU;
+		// 退避期间若收到 Close 则立即退出,不影响正常关闭路径。
+		backoff += noticeRestartBackoffStep
+		if backoff > noticeRestartBackoffMax {
+			backoff = noticeRestartBackoffMax
+		}
+		select {
+		case <-notice.done:
+			if noticeAliveGauge != nil {
+				noticeAliveGauge.Set(0)
+			}
+			return
+		case <-time.After(backoff):
+		}
 	}
 }
 

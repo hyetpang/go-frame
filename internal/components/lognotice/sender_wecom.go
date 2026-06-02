@@ -35,11 +35,12 @@ func (s *wecomSender) Send(name, url string, msg noticeContent) error {
 	}
 	response := new(wecomSendMsgRsp)
 	if err := s.postJSON(context.Background(), url, params, response); err != nil {
-		logs.ErrorWithoutNotice("企业微信发送消息出错", zap.Error(err), zap.Any("params", params))
+		// 仅记 url/类型/error,不重复打印含通知文案的完整 params,避免敏感内容反复落盘
+		logs.ErrorWithoutNotice("企业微信发送消息出错", zap.String("url", url), zap.String("type", "wecom"), zap.Error(err))
 		return err
 	}
 	if response.Errcode != 0 {
-		logs.ErrorWithoutNotice("error日志通知出错,响应码errcode不是0", zap.Int("code", response.Errcode), zap.Any("params", params))
+		logs.ErrorWithoutNotice("error日志通知出错,响应码errcode不是0", zap.String("url", url), zap.String("type", "wecom"), zap.Int("code", response.Errcode))
 		return errors.New("error日志通知出错,响应码errcode不是0")
 	}
 	return nil

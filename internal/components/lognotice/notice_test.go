@@ -35,11 +35,53 @@ func TestRateLimiterAggregatesRepeatedMessagesInWindow(t *testing.T) {
 	if len(sender.sent) != 2 {
 		t.Fatalf("sent count after flush = %d, want 2", len(sender.sent))
 	}
-	if !strings.Contains(sender.sent[1].msg, "重复2次") {
+	// 首条立即发送计为 1 次,3 次 handle 即 repeats=3,口径与真实发生次数对齐
+	if !strings.Contains(sender.sent[1].msg, "重复3次") {
 		t.Fatalf("aggregate message = %q, want repeated count", sender.sent[1].msg)
 	}
 	if sender.sent[1].filename != base.filename || sender.sent[1].line != base.line {
 		t.Fatalf("aggregate location = %s:%d, want %s:%d", sender.sent[1].filename, sender.sent[1].line, base.filename, base.line)
+	}
+}
+
+func TestRateLimiterSingleOccurrenceHasNoSummary(t *testing.T) {
+	// 窗口内仅发生一次:flush 时不应补发"重复1次"的聚合摘要
+	sender := &fakeSender{}
+	limiter := newNoticeLimiter(time.Minute, func() time.Time {
+		return time.Unix(100, 0)
+	})
+	base := noticeContent{msg: "db down", filename: "repo/service.go", line: 42}
+
+	limiter.handle(sender, "svc", "url", base)
+	limiter.flushExpired(sender, "svc", "url", time.Unix(161, 0))
+
+	if len(sender.sent) != 1 {
+		t.Fatalf("sent count = %d, want 1 (no summary for single occurrence)", len(sender.sent))
+	}
+}
+
+func TestRateLimiterHandleOnExpiredKeyFlushesAndResends(t *testing.T) {
+	// 同一 key 跨窗口:第二个窗口的首条 handle 命中已过期 entry,
+	// 应先聚合上报上一窗口(重复3次),再把本条作为新通知立即发送
+	sender := &fakeSender{}
+	tick := time.Unix(100, 0)
+	limiter := newNoticeLimiter(time.Minute, func() time.Time { return tick })
+	base := noticeContent{msg: "db down", filename: "repo/service.go", line: 42}
+
+	limiter.handle(sender, "svc", "url", base) // 立即发送(1)
+	limiter.handle(sender, "svc", "url", base) // repeats=2
+	limiter.handle(sender, "svc", "url", base) // repeats=3
+
+	// 推进时钟越过窗口,再次 handle 同一 key
+	tick = tick.Add(2 * time.Minute)
+	limiter.handle(sender, "svc", "url", base)
+
+	// 期望:首条立即发送 + 聚合摘要 + 新窗口首条立即发送 = 3 条
+	if len(sender.sent) != 3 {
+		t.Fatalf("sent count = %d, want 3", len(sender.sent))
+	}
+	if !strings.Contains(sender.sent[1].msg, "重复3次") {
+		t.Fatalf("summary = %q, want 重复3次", sender.sent[1].msg)
 	}
 }
 
