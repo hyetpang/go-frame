@@ -33,6 +33,7 @@ type Config struct {
 	GRPC      GRPC      `mapstructure:"grpc"`
 	Etcd      Etcd      `mapstructure:"etcd"`
 	Kafka     Kafka     `mapstructure:"kafka"`
+	Nats      Nats      `mapstructure:"nats"`
 	Gout      Gout      `mapstructure:"gout"`
 	Tracing   Tracing   `mapstructure:"tracing"`
 
@@ -239,6 +240,15 @@ type Kafka struct {
 	TLS       TLSConfig `mapstructure:"tls"`
 }
 
+type Nats struct {
+	Addr             string `mapstructure:"addr" validate:"required"` // 逗号分隔多地址,如 "nats://127.0.0.1:4222"
+	Name             string `mapstructure:"name"`                     // 连接名,便于服务端识别与排查
+	Username         string `mapstructure:"username"`                 // 留空表示明文连接
+	Password         string `mapstructure:"password"`                 // 配合 Username 使用
+	MaxReconnects    int    `mapstructure:"max_reconnects"`           // 最大重连次数,0 视为未配置 → 默认 -1(无限重连)
+	ReconnectWaitSec int    `mapstructure:"reconnect_wait_sec"`       // 重连间隔秒,默认 2
+}
+
 type Gout struct {
 	Debug   bool `mapstructure:"debug"`
 	Timeout int  `mapstructure:"timeout"`
@@ -285,6 +295,7 @@ const (
 	defaultRedisPoolSizeMultiplier = 10
 	defaultTracingProtocol         = "http"
 	defaultTracingSampleRatio      = 1.0
+	defaultNatsReconnectWaitSec    = 2
 )
 
 // EnvVar 是 LoadWithEnv 读取的环境变量名,用来推导环境覆盖配置文件后缀。
@@ -611,6 +622,7 @@ func SectionProviders() []any {
 		provideGRPC,
 		provideEtcd,
 		provideKafka,
+		provideNats,
 		provideGout,
 		provideTracing,
 	}
@@ -624,6 +636,7 @@ func (conf *Config) applyDefaults() {
 	conf.ZapLog.applyDefaults()
 	conf.LogNotice.applyDefaults()
 	conf.Redis.applyDefaults()
+	conf.Nats.applyDefaults()
 	conf.Tracing.applyDefaults(&conf.ZapLog)
 }
 
@@ -689,6 +702,18 @@ func (conf *Tracing) applyDefaults(zapLog *ZapLog) {
 	}
 }
 
+// applyDefaults 填充 Nats 未显式配置项的默认值。
+// MaxReconnects 取 0 与"不重连"语义冲突,框架统一视 0 为未配置 → 无限重连(-1);
+// 如业务确需禁用重连,后续另开布尔字段,首版不暴露。
+func (conf *Nats) applyDefaults() {
+	if conf.MaxReconnects == 0 {
+		conf.MaxReconnects = -1
+	}
+	if conf.ReconnectWaitSec <= 0 {
+		conf.ReconnectWaitSec = defaultNatsReconnectWaitSec
+	}
+}
+
 func provideServer(conf *Config) *Server       { return &conf.Server }
 func provideHTTP(conf *Config) *HTTP           { return &conf.HTTP }
 func provideMySQL(conf *Config) []MySQL        { return conf.MySQL }
@@ -698,5 +723,6 @@ func provideZapLog(conf *Config) *ZapLog       { return &conf.ZapLog }
 func provideGRPC(conf *Config) *GRPC           { return &conf.GRPC }
 func provideEtcd(conf *Config) *Etcd           { return &conf.Etcd }
 func provideKafka(conf *Config) *Kafka         { return &conf.Kafka }
+func provideNats(conf *Config) *Nats           { return &conf.Nats }
 func provideGout(conf *Config) *Gout           { return &conf.Gout }
 func provideTracing(conf *Config) *Tracing     { return &conf.Tracing }

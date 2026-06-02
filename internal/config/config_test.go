@@ -128,7 +128,7 @@ func TestSectionProvidersExposeConfiguredSections(t *testing.T) {
 }
 
 func TestSectionProvidersDoNotExposeGraceRestart(t *testing.T) {
-	if got, want := len(SectionProviders()), 11; got != want {
+	if got, want := len(SectionProviders()), 12; got != want {
 		t.Fatalf("section provider count = %d, want %d without graceful restart provider", got, want)
 	}
 }
@@ -553,6 +553,19 @@ func TestWatchAndReloadLogsErrorOnInvalidContent(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("期望 Error 级别日志,实际日志: %v", entries)
+	}
+}
+
+func TestNatsDefaultsAreApplied(t *testing.T) {
+	conf := &Config{}
+
+	conf.applyDefaults()
+
+	if conf.Nats.MaxReconnects != -1 {
+		t.Fatalf("nats max_reconnects = %d, want -1", conf.Nats.MaxReconnects)
+	}
+	if conf.Nats.ReconnectWaitSec != defaultNatsReconnectWaitSec {
+		t.Fatalf("nats reconnect_wait_sec = %d, want %d", conf.Nats.ReconnectWaitSec, defaultNatsReconnectWaitSec)
 	}
 }
 
