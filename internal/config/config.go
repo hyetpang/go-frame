@@ -56,9 +56,9 @@ type HTTP struct {
 	// 0 视为未配置走默认 1000ms。CI 容器、慢启动镜像可适当调高。
 	ReadyTimeoutMs int  `mapstructure:"ready_timeout_ms"`
 	IsDoc          bool `mapstructure:"is_doc"`
-	IsPprof       bool   `mapstructure:"is_pprof"`
-	IsMetrics     bool   `mapstructure:"is_metrics"`
-	IsProd        bool   `mapstructure:"is_prod"`
+	IsPprof        bool `mapstructure:"is_pprof"`
+	IsMetrics      bool `mapstructure:"is_metrics"`
+	IsProd         bool `mapstructure:"is_prod"`
 }
 
 type MySQL struct {
@@ -111,16 +111,16 @@ type LogNotice struct {
 }
 
 type ZapLog struct {
-	Path            string `mapstructure:"path"`
-	ServiceName     string `mapstructure:"service_name"`
-	Level           int    `mapstructure:"level" validate:"oneof=-1 0 1 2"`
+	Path        string `mapstructure:"path"`
+	ServiceName string `mapstructure:"service_name"`
+	Level       int    `mapstructure:"level" validate:"oneof=-1 0 1 2"`
 	// StacktraceLevel 为 0 视为未设置(走默认 WarnLevel)。允许值为 -1/1/2,
 	// 不再接受 0 — 旧版 0 会被静默改成 1,容易让用户误以为"显式配 InfoLevel"生效。
-	StacktraceLevel int `mapstructure:"stacktrace_level" validate:"omitempty,oneof=-1 1 2"`
-	LogMaxSize      int    `mapstructure:"log_max_size"`
-	LogMaxBackups   int    `mapstructure:"log_max_backups"`
-	LogMaxAge       int    `mapstructure:"log_max_age"`
-	IsLogFile       bool   `mapstructure:"is_log_file"`
+	StacktraceLevel int  `mapstructure:"stacktrace_level" validate:"omitempty,oneof=-1 1 2"`
+	LogMaxSize      int  `mapstructure:"log_max_size"`
+	LogMaxBackups   int  `mapstructure:"log_max_backups"`
+	LogMaxAge       int  `mapstructure:"log_max_age"`
+	IsLogFile       bool `mapstructure:"is_log_file"`
 }
 
 type GRPC struct {
@@ -279,18 +279,18 @@ type Tracing struct {
 }
 
 const (
-	defaultGRPCServicePrefix           = "grpc_services"
-	defaultZapLogMaxSize               = 128
-	defaultZapLogMaxBackups            = 30
-	defaultZapLogMaxAge                = 7
-	defaultZapStacktraceLevel          = 1
-	defaultLogNoticeLimitWindowSeconds = 60
-	defaultLogNoticeLimitMaxKeys       = 1024
-	defaultHTTPMaxBodyBytes      int64 = 10 << 20 // 10 MiB
-	defaultRedisMinIdleConns           = 5
-	defaultRedisDialTimeoutSec         = 5
-	defaultRedisReadTimeoutSec         = 5
-	defaultRedisWriteTimeoutSec        = 5
+	defaultGRPCServicePrefix                 = "grpc_services"
+	defaultZapLogMaxSize                     = 128
+	defaultZapLogMaxBackups                  = 30
+	defaultZapLogMaxAge                      = 7
+	defaultZapStacktraceLevel                = 1
+	defaultLogNoticeLimitWindowSeconds       = 60
+	defaultLogNoticeLimitMaxKeys             = 1024
+	defaultHTTPMaxBodyBytes            int64 = 10 << 20 // 10 MiB
+	defaultRedisMinIdleConns                 = 5
+	defaultRedisDialTimeoutSec               = 5
+	defaultRedisReadTimeoutSec               = 5
+	defaultRedisWriteTimeoutSec              = 5
 	// defaultRedisPoolSizeMultiplier 用于按 GOMAXPROCS 推导 PoolSize:与 go-redis 默认一致 (10*GOMAXPROCS)。
 	defaultRedisPoolSizeMultiplier = 10
 	defaultTracingProtocol         = "http"
