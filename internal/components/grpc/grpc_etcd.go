@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/hyetpang/go-frame/pkgs/logs"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -11,16 +12,19 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // 使用etcd作为服务发现
 func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Client, conf *config) (*grpc.Server, error) {
-	s, lis, conf, err := newServer(zapLog, conf)
+	s, lis, healthServer, conf, err := newServer(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
 	serviceNamePrefix := conf.ServicePrefix
 	ctx, cancel := context.WithCancel(context.Background())
+	// listener 关闭去重,避免启动失败兜底关闭与 OnStop/grpc 内部关闭产生 double-close。
+	var lisCloseOnce sync.Once
 	lc.Append(fx.Hook{
 		OnStart: func(startCtx context.Context) error {
 			errCh := make(chan error, 1)
@@ -31,6 +35,8 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 			}()
 			if err := waitGRPCServerReady(startCtx, lis.Addr().String(), errCh); err != nil {
 				cancel()
+				// 启动失败必须回收资源:fx 不会触发 OnStop
+				abortServerStartup(startCtx, s, lis, &lisCloseOnce)
 				return err
 			}
 			// 启动成功后持续监听 Serve 异常退出,避免错误被吞没
@@ -45,16 +51,23 @@ func NewServerEtcd(lc fx.Lifecycle, zapLog *zap.Logger, etcdClient *clientv3.Cli
 			for _, serviceName := range serviceNames {
 				if err := etcdRegisterService(ctx, serviceNamePrefix, serviceName, conf.Address, etcdClient); err != nil {
 					cancel()
+					// etcd 注册中途失败同样需回收 server + listener
+					abortServerStartup(startCtx, s, lis, &lisCloseOnce)
 					return fmt.Errorf("注册服务出错 %s: %w", serviceName, err)
 				}
 				logs.Info("注册GRPC服务", zap.String("服务名", serviceName))
 			}
+			// 全部注册成功后再标记健康检查为 SERVING
+			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 			logs.Debug("grpc start success", zap.String("address", conf.Address))
 			return nil
 		},
 		OnStop: func(stopCtx context.Context) error {
 			cancel()
+			// 停机前标记 NOT_SERVING,便于上游 LB 提前摘流
+			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 			gracefulStopServer(stopCtx, s)
+			lisCloseOnce.Do(func() { _ = lis.Close() })
 			return nil
 		},
 	})

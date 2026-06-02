@@ -17,6 +17,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
@@ -60,10 +61,12 @@ const (
 
 // 不使用服务发现
 func NewServer(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.Server, error) {
-	s, lis, conf, err := newServer(zapLog, conf)
+	s, lis, healthServer, conf, err := newServer(zapLog, conf)
 	if err != nil {
 		return nil, err
 	}
+	// listener 关闭去重,避免启动失败兜底关闭与 OnStop/grpc 内部关闭产生 double-close。
+	var lisCloseOnce sync.Once
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// errCh 长期保留,启动期由 OnStart 监听,启动成功后由后台 goroutine 继续监听 Serve 异常退出
@@ -74,10 +77,14 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.Server,
 				}
 			}()
 			if err := waitGRPCServerReady(ctx, lis.Addr().String(), errCh); err != nil {
+				// 启动失败必须回收资源:fx 不会触发 OnStop
+				abortServerStartup(ctx, s, lis, &lisCloseOnce)
 				return err
 			}
 			// 启动成功后将 errCh 的监听权转交给后台 goroutine,避免 Serve 长时间运行后失败的错误被吞没
 			go watchGRPCServeError(errCh, lis.Addr().String())
+			// 显式标记健康检查为 SERVING(空 service 名表示整个 server)
+			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 			for serviceName, serviceInfo := range s.GetServiceInfo() {
 				zap.L().Info("注册GRPC服务", zap.String("服务名", serviceName), zap.Any("Metadata", serviceInfo.Metadata))
 			}
@@ -85,7 +92,10 @@ func NewServer(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.Server,
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			// 停机前标记 NOT_SERVING,便于上游 LB 提前摘流
+			healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 			gracefulStopServer(ctx, s)
+			lisCloseOnce.Do(func() { _ = lis.Close() })
 			return nil
 		},
 	})
@@ -108,13 +118,13 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (*grpc.ClientC
 	return newClient(conf.Address, conf.Address, conf, lc, zapLog, nil, creds)
 }
 
-func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *config, error) {
+func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *health.Server, *config, error) {
 	conf, err := newConfig(conf)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if len(conf.Address) < 1 {
-		return nil, nil, nil, errors.New("grpc监听地址必填")
+		return nil, nil, nil, nil, errors.New("grpc监听地址必填")
 	}
 	registerGRPCMetrics()
 	logger := grpcLogger(zapLog)
@@ -147,18 +157,20 @@ func newServer(zapLog *zap.Logger, conf *config) (*grpc.Server, net.Listener, *c
 	if conf.ServerTLS.IsEnabled() {
 		tlsCfg, terr := conf.ServerTLS.BuildServerTLS()
 		if terr != nil {
-			return nil, nil, nil, fmt.Errorf("构建 grpc server TLS 配置出错: %w", terr)
+			return nil, nil, nil, nil, fmt.Errorf("构建 grpc server TLS 配置出错: %w", terr)
 		}
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
 	}
 	s := grpc.NewServer(serverOpts...)
 	lis, err := net.Listen("tcp", conf.Address)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("监听地址出错 %s: %w", conf.Address, err)
+		return nil, nil, nil, nil, fmt.Errorf("监听地址出错 %s: %w", conf.Address, err)
 	}
-	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
+	// 持有 healthServer 引用,启动成功后显式置 SERVING、停机时置 NOT_SERVING
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
 	serverMetrics.InitializeMetrics(s)
-	return s, lis, conf, nil
+	return s, lis, healthServer, conf, nil
 }
 
 // buildClientCreds 根据配置返回 grpc 客户端使用的 TransportCredentials。
@@ -303,6 +315,18 @@ func watchGRPCServeError(errCh <-chan error, addr string) {
 	}
 }
 
+// abortServerStartup 在 OnStart 中途失败时回收资源,避免端口与 goroutine 泄漏。
+// fx 启动失败不会触发 OnStop,故必须在失败返回路径上显式调用:
+//  1. Stop server:会唤醒后台 s.Serve goroutine 使其退出;
+//  2. 显式关闭 listener:grpc.Server 仅会关闭"已被 Serve 接管"的 listener,
+//     若 Stop 早于 Serve 注册 listener,则不会被关闭,这里兜底关闭。
+//
+// listener 的 Close 通过 closeOnce 去重,避免与 grpc 内部关闭产生 double-close 报错。
+func abortServerStartup(ctx context.Context, server *grpc.Server, lis net.Listener, closeOnce *sync.Once) {
+	gracefulStopServer(ctx, server)
+	closeOnce.Do(func() { _ = lis.Close() })
+}
+
 func gracefulStopServer(ctx context.Context, server *grpc.Server) {
 	timeout := grpcGracefulStopTimeout
 	if deadline, ok := ctx.Deadline(); ok {
@@ -380,7 +404,7 @@ func probeClientTargetReady(conn *grpc.ClientConn, target string) {
 	defer cancel()
 	for {
 		state := conn.GetState()
-		if state.String() == "READY" {
+		if state == connectivity.Ready {
 			clientTargetReady.WithLabelValues(target, "success").Inc()
 			return
 		}
