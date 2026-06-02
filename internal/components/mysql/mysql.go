@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,21 +36,29 @@ func New(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (map[string]*gor
 	}
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
-			// 多 DB 串行受 ctx 约束:任一卡住时剩余 DB 仍能在 fx Stop timeout 内尝试关闭。
+			// 多 DB 串行关闭:任一卡住时剩余 DB 仍能在 fx Stop timeout 内尝试关闭。
+			// 把总预算按剩余实例数均分给每个实例独立子超时,避免某个慢 Close
+			// 耗尽整体 ctx 后,后续实例因 ctx 已超时而直接跳过、得不到关闭机会。
+			// 不提前 return,继续尽力关闭剩余实例并聚合错误。
+			remaining := len(dbs)
+			var errs []error
 			for name, db := range dbs {
-				if ctx.Err() != nil {
-					logs.Warn("mysql 多实例关闭被 fx Stop timeout 中止", zap.String("剩余", name))
-					return ctx.Err()
-				}
 				sqlDB, err := db.DB()
 				if err != nil || sqlDB == nil {
+					remaining--
 					continue
 				}
-				if e := lifecycle.CloseWithContext(ctx, "mysql/"+name, sqlDB.Close); e != nil {
+				// 为当前实例分配独立子超时:剩余总预算 / 剩余待关闭实例数。
+				closeCtx, cancel := perInstanceCloseContext(ctx, remaining)
+				e := lifecycle.CloseWithContext(closeCtx, "mysql/"+name, sqlDB.Close)
+				cancel()
+				remaining--
+				if e != nil {
 					logs.Error("关闭mysql连接出错", zap.Error(e), zap.String("name", name))
+					errs = append(errs, e)
 				}
 			}
-			return nil
+			return errors.Join(errs...)
 		},
 	})
 	return dbs, nil
@@ -81,6 +90,23 @@ func NewOne(zapLog *zap.Logger, lc fx.Lifecycle, configs []config) (*gorm.DB, er
 		},
 	})
 	return db, nil
+}
+
+// perInstanceCloseContext 为多实例关闭中的单个实例派生独立子超时。
+// 当父 ctx 设置了 deadline 时,把剩余时间均分给剩余待关闭实例(remaining),
+// 这样即便前一个实例耗尽了自己那一份预算,后续实例仍能拿到属于自己的关闭窗口;
+// 父 ctx 无 deadline 时直接透传,不引入额外限制。
+func perInstanceCloseContext(ctx context.Context, remaining int) (context.Context, context.CancelFunc) {
+	deadline, ok := ctx.Deadline()
+	if !ok || remaining <= 1 {
+		// 无 deadline,或已是最后一个实例:整段剩余预算都给它,无需再切分。
+		return context.WithCancel(ctx)
+	}
+	budget := time.Until(deadline)
+	if budget <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, budget/time.Duration(remaining))
 }
 
 func pickOneConfig(configs []config) (*config, error) {
@@ -123,7 +149,6 @@ func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
 	gormLog := zapgorm2.New(zapLog)
 	gormLog.IgnoreRecordNotFoundError = conf.GormLogIgnoreRecordNotFoundError
 	gormLog.LogLevel = logger.LogLevel(conf.GormLogLevel)
-	gormLog.SetAsDefault() // optional: configure gorm to use this zapgorm.Logger for callbacks
 	db, err := gorm.Open(mysql.Open(conf.ConnectString), &gorm.Config{
 		NamingStrategy: nameStrategy,
 		Logger:         gormLog,
@@ -142,29 +167,22 @@ func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("获取数据库底层连接出错 name=%s: %w", conf.Name, err)
 	}
-	maxIdleTimeConfig := conf.MaxIdleTime
-	if maxIdleTimeConfig == 0 {
-		maxIdleTimeConfig = maxIdleTime
-	}
-	sqlDB.SetConnMaxIdleTime(time.Duration(maxIdleTimeConfig) * time.Minute)
-
-	maxLifeTimeConfig := conf.MaxLifeTime
-	if maxLifeTimeConfig == 0 {
-		maxLifeTimeConfig = maxLifeTime
-	}
-	sqlDB.SetConnMaxLifetime(time.Minute * time.Duration(maxLifeTimeConfig))
-
-	maxIdleConnsConfig := conf.MaxIdleConns
-	if maxIdleConnsConfig == 0 {
-		maxIdleConnsConfig = maxIdleConns
-	}
-	sqlDB.SetMaxIdleConns(maxIdleConnsConfig)
-	maxOpenConnsConfig := conf.MaxOpenConns
-	if maxOpenConnsConfig == 0 {
-		maxOpenConnsConfig = maxOpenConns
-	}
-	sqlDB.SetMaxOpenConns(maxOpenConnsConfig)
+	sqlDB.SetConnMaxIdleTime(time.Duration(defaultIfNonPositive(conf.MaxIdleTime, maxIdleTime)) * time.Minute)
+	sqlDB.SetConnMaxLifetime(time.Minute * time.Duration(defaultIfNonPositive(conf.MaxLifeTime, maxLifeTime)))
+	sqlDB.SetMaxIdleConns(defaultIfNonPositive(conf.MaxIdleConns, maxIdleConns))
+	sqlDB.SetMaxOpenConns(defaultIfNonPositive(conf.MaxOpenConns, maxOpenConns))
 	return db, nil
+}
+
+// defaultIfNonPositive 在配置值 <= 0 时回退到默认值。
+// 统一用 <= 0 兜底:未配置(0)与误配负数(如 -1)都走默认。否则 -1 会被原样透传给
+// database/sql,SetMaxOpenConns(-1) 表示无限连接可能耗尽 DB,SetMaxIdleConns(-1)
+// 等同关闭空闲连接复用,均非预期行为。
+func defaultIfNonPositive(value, def int) int {
+	if value <= 0 {
+		return def
+	}
+	return value
 }
 
 func closeMysqls(dbs map[string]*gorm.DB) {
