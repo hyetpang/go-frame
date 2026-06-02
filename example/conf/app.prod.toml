@@ -98,6 +98,14 @@ key_file = ""
 server_name = ""
 insecure_skip_verify = false
 
+[nats]
+addr = "nats://127.0.0.1:4222"
+name = "myapp"
+username = ""            # 留空走无认证连接
+password = ""
+max_reconnects = -1      # -1 无限重连
+reconnect_wait_sec = 2
+
 [kafka]
 addr = ""
 client_id = "myapp"

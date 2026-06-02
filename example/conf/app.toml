@@ -119,6 +119,14 @@ key_file = ""             # 可选: 启用 mTLS 时使用的客户端私钥
 server_name = ""
 insecure_skip_verify = false # ⚠️ 仅供本地调试,生产环境严禁开启
 
+[nats]
+addr = "nats://127.0.0.1:4222"
+name = "myapp"
+username = ""            # 留空走无认证连接
+password = ""
+max_reconnects = -1      # -1 无限重连
+reconnect_wait_sec = 2
+
 
 [kafka]
 addr = "127.0.0.1:9092"   # kafka 地址,多个 broker 使用逗号分隔
