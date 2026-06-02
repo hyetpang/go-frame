@@ -15,6 +15,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// parseAddrs 解析逗号分隔的 broker 地址串,对每个地址做 TrimSpace 并过滤空串,
+// 避免 "a, b" 这类带空格的配置产生非法 broker 地址。
+func parseAddrs(addr string) []string {
+	parts := strings.Split(addr, ",")
+	addrs := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if a := strings.TrimSpace(p); a != "" {
+			addrs = append(addrs, a)
+		}
+	}
+	return addrs
+}
+
 // NewClient 创建 sarama.Client,作为 Producer/Consumer 的共享底座。
 // 拆分原因:历史 New 一次性创建 Client+SyncProducer+AsyncProducer+Consumer,
 // 强制纯生产或纯消费服务也要建立全部资源。现按需 Provide,各自管理 fx 生命周期。
@@ -27,7 +40,7 @@ func NewClient(lc fx.Lifecycle, zapLog *zap.Logger, conf *config) (sarama.Client
 	if err != nil {
 		return nil, err
 	}
-	client, err := sarama.NewClient(strings.Split(conf.Addr, ","), saramaCfg)
+	client, err := sarama.NewClient(parseAddrs(conf.Addr), saramaCfg)
 	if err != nil {
 		return nil, fmt.Errorf("连接kafka出错 addr=%s: %w", conf.Addr, err)
 	}
