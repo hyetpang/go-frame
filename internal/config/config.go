@@ -346,7 +346,7 @@ func mergeEnvOverlay(v *viper.Viper, baseFile string) error {
 	}
 	envFile := envOverlayPath(baseFile, env)
 	if _, err := os.Stat(envFile); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return fmt.Errorf("读取环境配置 %s 出错: %w", envFile, err)

@@ -32,10 +32,10 @@ func (cl kafkaLog) Printf(msg string, format ...any) {
 func (cl kafkaLog) Print(v ...any) {
 	msg := fmt.Sprint(v...)
 	if isKafkaWarnMessage(msg) {
-		cl.Logger.Warn("kafka", zap.String("message", msg))
+		cl.Warn("kafka", zap.String("message", msg))
 		return
 	}
-	cl.Logger.Debug("kafka", zap.String("message", msg))
+	cl.Debug("kafka", zap.String("message", msg))
 }
 
 func (cl kafkaLog) Println(v ...any) {

@@ -114,8 +114,8 @@ func isLoopbackOrInternalEndpoint(endpoint string) bool {
 	}
 	// otlptrace endpoint 既可能带 scheme 也可能裸 host:port,这里统一剥离再用 SplitHostPort
 	host := endpoint
-	if idx := strings.Index(host, "://"); idx >= 0 {
-		host = host[idx+3:]
+	if _, after, found := strings.Cut(host, "://"); found {
+		host = after
 	}
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h

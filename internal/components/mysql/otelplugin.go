@@ -119,10 +119,10 @@ func (p *otelMySQLPlugin) before(spanName string) gormHookFunc {
 		tx.Statement.Context = contextWrapper{Context: ctx, parent: parentCtx}
 
 		// 仅识别 mysql dialector，提取 server.address。
-		if dialector, ok := tx.Config.Dialector.(*mysql.Dialector); ok {
-			if dialector.Config != nil && dialector.Config.DSNConfig != nil &&
-				dialector.Config.DSNConfig.Addr != "" {
-				span.SetAttributes(semconv.ServerAddress(dialector.Config.DSNConfig.Addr))
+		if dialector, ok := tx.Dialector.(*mysql.Dialector); ok {
+			if dialector.Config != nil && dialector.DSNConfig != nil &&
+				dialector.DSNConfig.Addr != "" {
+				span.SetAttributes(semconv.ServerAddress(dialector.DSNConfig.Addr))
 			}
 		}
 	}
@@ -145,7 +145,7 @@ func (p *otelMySQLPlugin) after() gormHookFunc {
 		attrs := make([]attribute.KeyValue, 0, 5)
 		attrs = append(attrs, semconv.DBSystemMySQL)
 
-		query := tx.Dialector.Explain(tx.Statement.SQL.String(), tx.Statement.Vars...)
+		query := tx.Explain(tx.Statement.SQL.String(), tx.Statement.Vars...)
 		attrs = append(attrs, semconv.DBQueryText(query))
 		operation := dbOperation(query)
 		attrs = append(attrs, semconv.DBOperationName(operation))

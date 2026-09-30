@@ -32,7 +32,7 @@ func TestAbortServerStartupReleasesPort(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	var once sync.Once
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 	abortServerStartup(ctx, s, lis, &once)
 
@@ -65,7 +65,7 @@ func TestAbortServerStartupClosesListenerBeforeServe(t *testing.T) {
 	s := grpc.NewServer()
 
 	var once sync.Once
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 	abortServerStartup(ctx, s, lis, &once)
 

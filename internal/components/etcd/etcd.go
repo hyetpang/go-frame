@@ -27,9 +27,8 @@ const (
 // parseEndpoints 解析逗号分隔的地址串,对每个 endpoint 做 TrimSpace 并过滤空串,
 // 避免 "a, b" 这类带空格的配置产生非法 endpoint。
 func parseEndpoints(addresses string) []string {
-	parts := strings.Split(addresses, ",")
-	endpoints := make([]string, 0, len(parts))
-	for _, p := range parts {
+	endpoints := make([]string, 0, strings.Count(addresses, ",")+1)
+	for p := range strings.SplitSeq(addresses, ",") {
 		if ep := strings.TrimSpace(p); ep != "" {
 			endpoints = append(endpoints, ep)
 		}

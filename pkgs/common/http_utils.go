@@ -2,8 +2,9 @@ package common
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -42,12 +43,7 @@ func SanitizeRequestForLog(r *http.Request) string {
 	if r.Host != "" {
 		fmt.Fprintf(&buf, "Host: %s\r\n", r.Host)
 	}
-	keys := make([]string, 0, len(r.Header))
-	for k := range r.Header {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(r.Header)) {
 		if IsSensitiveHeader(k) {
 			fmt.Fprintf(&buf, "%s: ***\r\n", k)
 			continue

@@ -208,7 +208,10 @@ app.Run(options.WithTracing())
 
 ## 开发工具
 
+项目使用 Go 1.27.0，lint 配置采用 golangci-lint v2。
+
 ```bash
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 go install github.com/swaggo/swag/cmd/swag@latest
 go install github.com/dkorunic/betteralign/cmd/betteralign@latest
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -224,7 +227,9 @@ go install github.com/hyetpang/go-code-gen@latest
 ```bash
 go test ./...
 go vet ./...
-gofmt -w $(find . -name '*.go' -not -path './vendor/*')
+golangci-lint run ./...
+go fix -diff ./...
+go fmt ./...
 ```
 
 ## 依赖说明

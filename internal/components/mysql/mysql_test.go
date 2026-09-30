@@ -63,7 +63,7 @@ func TestDefaultIfNonPositive(t *testing.T) {
 // TestPerInstanceCloseContextSplitsBudget 验证多实例关闭时,父 ctx 的剩余预算
 // 会按剩余实例数均分给每个实例,使某个实例耗尽预算后,后续实例仍有独立关闭窗口。
 func TestPerInstanceCloseContextSplitsBudget(t *testing.T) {
-	parent, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	parent, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	// 还剩 5 个实例待关闭,单实例预算应约为 10s/5 = 2s,且必须小于父 ctx 预算。
@@ -82,7 +82,7 @@ func TestPerInstanceCloseContextSplitsBudget(t *testing.T) {
 // TestPerInstanceCloseContextLastInstanceGetsFullBudget 最后一个实例(remaining<=1)
 // 应拿到整段剩余预算,不再二次切分。
 func TestPerInstanceCloseContextLastInstanceGetsFullBudget(t *testing.T) {
-	parent, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	parent, cancel := context.WithTimeout(t.Context(), 4*time.Second)
 	defer cancel()
 
 	childCtx, childCancel := perInstanceCloseContext(parent, 1)
@@ -111,7 +111,7 @@ func TestPerInstanceCloseContextNoDeadline(t *testing.T) {
 func TestNewOnStopClosesAllInstances(t *testing.T) {
 	dbs := map[string]struct{}{"a": {}, "b": {}, "c": {}}
 	// 模拟 OnStop 中的均分逻辑:父预算被前面实例耗尽后,后续实例仍能拿到独立子窗口。
-	parent, cancel := context.WithTimeout(context.Background(), 90*time.Millisecond)
+	parent, cancel := context.WithTimeout(t.Context(), 90*time.Millisecond)
 	defer cancel()
 
 	remaining := len(dbs)

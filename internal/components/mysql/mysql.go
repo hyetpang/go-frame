@@ -141,8 +141,9 @@ func newMysqls(configs []*config, zapLog *zap.Logger) (map[string]*gorm.DB, erro
 
 // TODO 增加指标监控 https://github.com/go-gorm/prometheus
 func newMysql(conf *config, zapLog *zap.Logger) (*gorm.DB, error) {
-	nameStrategy := schema.NamingStrategy{}
-	nameStrategy.TablePrefix = conf.TablePrefix
+	nameStrategy := schema.NamingStrategy{
+		TablePrefix: conf.TablePrefix,
+	}
 	if len(nameStrategy.TablePrefix) > 0 {
 		nameStrategy.TablePrefix += "_"
 	}

@@ -1,7 +1,6 @@
 package logs
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -76,7 +75,7 @@ func TestUnregisterNoticeHook(t *testing.T) {
 }
 
 func TestCtxReturnsGlobalLoggerWhenNoSpan(t *testing.T) {
-	logger := Ctx(context.Background())
+	logger := Ctx(t.Context())
 	if logger == nil {
 		t.Fatal("expected non-nil logger")
 	}
@@ -107,7 +106,7 @@ func TestCtxAppendsTraceIDAndSpanIDFields(t *testing.T) {
 		TraceFlags: trace.FlagsSampled,
 		Remote:     true,
 	})
-	ctx := trace.ContextWithSpanContext(context.Background(), sc)
+	ctx := trace.ContextWithSpanContext(t.Context(), sc)
 
 	Ctx(ctx).Info("test")
 

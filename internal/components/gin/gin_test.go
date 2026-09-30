@@ -145,7 +145,7 @@ func TestNewStartsWithoutFixedOneSecondDelay(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 	start := time.Now()
 	if err := lc.Start(ctx); err != nil {

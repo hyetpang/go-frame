@@ -121,9 +121,9 @@ func TestNewExporterWithHeaders(t *testing.T) {
 		defer cancel()
 		_ = tp.Shutdown(ctx)
 	})
-	_, span := tp.Tracer("test").Start(context.Background(), "header-injection")
+	_, span := tp.Tracer("test").Start(t.Context(), "header-injection")
 	span.End()
-	if err := tp.ForceFlush(context.Background()); err != nil {
+	if err := tp.ForceFlush(t.Context()); err != nil {
 		t.Fatalf("ForceFlush 失败: %v", err)
 	}
 

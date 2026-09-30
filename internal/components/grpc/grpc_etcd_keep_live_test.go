@@ -3,22 +3,25 @@ package grpc
 import (
 	"context"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
 func TestSleepWithCtxReturnsTrueOnTimer(t *testing.T) {
-	ctx := context.Background()
-	start := time.Now()
-	if !sleepWithCtx(ctx, 10*time.Millisecond) {
-		t.Fatal("sleepWithCtx 在正常超时时应返回 true")
-	}
-	if elapsed := time.Since(start); elapsed < 10*time.Millisecond {
-		t.Fatalf("sleepWithCtx 实际耗时 %s,小于配置时长", elapsed)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		start := time.Now()
+		if !sleepWithCtx(t.Context(), 10*time.Millisecond) {
+			t.Fatal("sleepWithCtx 在正常超时时应返回 true")
+		}
+		if elapsed := time.Since(start); elapsed != 10*time.Millisecond {
+			t.Fatalf("sleepWithCtx 实际耗时 %s, want 10ms", elapsed)
+		}
+	})
 }
 
 func TestSleepWithCtxReturnsFalseOnCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	cancel()
 	if sleepWithCtx(ctx, time.Hour) {
 		t.Fatal("sleepWithCtx 在 ctx 取消后应返回 false")
@@ -26,26 +29,35 @@ func TestSleepWithCtxReturnsFalseOnCancel(t *testing.T) {
 }
 
 func TestSleepWithCtxCancelMidway(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(10 * time.Millisecond)
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		finished := make(chan bool, 1)
+		go func() {
+			finished <- sleepWithCtx(ctx, time.Hour)
+		}()
+		// 先让等待协程阻塞在 timer 上,再推进虚拟时间并取消。
+		synctest.Sleep(10 * time.Millisecond)
 		cancel()
-	}()
-	start := time.Now()
-	if sleepWithCtx(ctx, time.Hour) {
-		t.Fatal("sleepWithCtx 在等待途中被取消时应返回 false")
-	}
-	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
-		t.Fatalf("sleepWithCtx 取消后未及时返回,耗时 %s", elapsed)
-	}
+		synctest.Wait()
+		select {
+		case got := <-finished:
+			if got {
+				t.Fatal("sleepWithCtx 在等待途中被取消时应返回 false")
+			}
+		default:
+			t.Fatal("sleepWithCtx 取消后未及时返回")
+		}
+	})
 }
 
 func TestSleepWithCtxZeroDuration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	if !sleepWithCtx(ctx, 0) {
 		t.Fatal("sleepWithCtx(0) 在 ctx 未取消时应返回 true")
 	}
-	cancelled, cancel := context.WithCancel(context.Background())
+	cancelled, cancel := context.WithCancel(t.Context())
+	defer cancel()
 	cancel()
 	if sleepWithCtx(cancelled, 0) {
 		t.Fatal("sleepWithCtx(0) 在 ctx 已取消时应返回 false")

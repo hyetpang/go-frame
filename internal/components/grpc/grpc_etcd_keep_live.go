@@ -143,10 +143,7 @@ func reRegisterWithBackoff(parentCtx context.Context, servicePrefix, serviceName
 		if !sleepWithCtx(parentCtx, jitter(backoff)) {
 			return nil, parentCtx.Err()
 		}
-		backoff *= 2
-		if backoff > etcdReRegisterMaxWait {
-			backoff = etcdReRegisterMaxWait
-		}
+		backoff = min(backoff*2, etcdReRegisterMaxWait)
 	}
 }
 
@@ -155,7 +152,7 @@ func jitter(d time.Duration) time.Duration {
 	if d <= 0 {
 		return 0
 	}
-	return d + time.Duration(rand.Int64N(int64(d)/2+1))
+	return d + rand.N(d/2+1)
 }
 
 // sleepWithCtx 在 ctx 取消时立即返回 false,避免 time.Sleep 无视取消信号。
